@@ -22,6 +22,7 @@ Namespace is the main class which represents the name tree and related
 operations to manage it.
 """
 
+import bisect
 from pyndn.util import Name
 
 class Namespace(object):
@@ -38,11 +39,14 @@ class Namespace(object):
         self._parent = None
         # The dictionary key is a Name.Component. The value is the child Namespace.
         self._children = {}
+        # The keys of _children in sorted order, kept in sync with _children.
+        # (We don't use OrderedDict because it doesn't sort keys on insert.)
+        self._sortedChildrenKeys = []
 
     def getName(self):
         """
         Get the name of this node in the name tree. This includes the name
-        components of parent nodes. To the name component of just this node,
+        components of parent nodes. To get the name component of just this node,
         use getName()[-1].
 
         :return: The name of this namespace.
@@ -88,9 +92,14 @@ class Namespace(object):
         if component in self._children:
             return self._children[component]
         else:
+            # Create the child.
             child = Namespace(Name(self._name).append(component))
             child._parent = self
             self._children[component] = child
+
+            # Keep _sortedChildrenKeys synced with _children.
+            bisect.insort_left(self._sortedChildrenKeys, component)
+
             return child
 
     def getChildComponents(self):
@@ -101,12 +110,7 @@ class Namespace(object):
           This remains the same if child nodes are added or deleted.
         :rtype: list of Name.Component
         """
-        result = []
-        for key in self._children.keys():
-            result.append(key)
-
-        result.sort()
-        return result
+        return self._sortedChildrenKeys[:]
 
     def __getitem__(self, key):
         """
