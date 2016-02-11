@@ -98,7 +98,7 @@ class Namespace(object):
             self._children[component] = child
 
             # Keep _sortedChildrenKeys synced with _children.
-            bisect.insort_left(self._sortedChildrenKeys, component)
+            bisect.insort(self._sortedChildrenKeys, component)
 
             return child
 
