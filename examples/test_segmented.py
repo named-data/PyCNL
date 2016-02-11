@@ -30,7 +30,7 @@ def dump(*list):
     print(result)
 
 def main():
-    foo = Namespace("/foo")
+    foo = Namespace("/ndn/ucla/foo")
     foobar = foo["bar"]
     foobaz = foo["baz"]
 
