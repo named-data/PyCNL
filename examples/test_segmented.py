@@ -31,10 +31,10 @@ def dump(*list):
 
 def main():
     foo = Namespace("/ndn/ucla/foo")
-    foo.onNameAdded(lambda ns, name: dump("Added to foo: " + name.toUri()))
+    foo.onNameAdded(lambda ns, addedNamespace: dump("Added to foo: " + addedNamespace.getName().toUri()))
     foo["bar"]
     foo["baz"]
-    foo["bar"].onNameAdded(lambda ns, name: dump("Added to foo/bar: " + name.toUri()))
+    foo["bar"].onNameAdded(lambda ns, addedNamespace: dump("Added to foo/bar: " + addedNamespace.getName().toUri()))
     foo["bar"]["barchild"]
 
 main()

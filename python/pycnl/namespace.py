@@ -24,6 +24,7 @@ operations to manage it.
 
 import bisect
 import threading
+import logging
 from pyndn.util import Name
 
 class Namespace(object):
@@ -113,7 +114,7 @@ class Namespace(object):
         When a new name is added to this namespace at this node or any children,
         call onNameAdded(namespace, name) as described below.
 
-        :param onNameAdded: This calls onNameAdded(namspace, name) where
+        :param onNameAdded: This calls onNameAdded(namespace, name) where
           namespace is this Namespace and name is the added Name including
           components of the parent nodes.
           NOTE: The library will log any exceptions raised by this callback, but
@@ -167,15 +168,17 @@ class Namespace(object):
         name = child.getName()
         namespace = self
         while namespace:
-            namespace._fireOnNameAdded(name)
+            namespace._fireOnNameAdded(child)
             namespace = namespace._parent
 
         return child
 
-    def _fireOnNameAdded(self, name):
+    def _fireOnNameAdded(self, addedNamespace):
         for id in self._onNameAddedHandlers:
-            # TODO: Catcn and log exceptions.
-            self._onNameAddedHandlers[id](self, name)
+            try:
+                self._onNameAddedHandlers[id](self, addedNamespace)
+            except:
+                logging.exception("Error in onNameAdded")
 
     @staticmethod
     def _getNextHandlerId():
