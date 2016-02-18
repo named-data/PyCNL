@@ -31,14 +31,10 @@ def dump(*list):
 
 def main():
     foo = Namespace("/ndn/ucla/foo")
-    foobar = foo["bar"]
-    foobaz = foo["baz"]
-
-    dump("foobar name", foobar.name)
-    
-    dump("")
-    dump("foo children:")
-    for childComponent in foo.getChildComponents():
-        dump("  ", foo[childComponent].name)
+    foo.onNameAdded(lambda ns, name: dump("Added to foo: " + name.toUri()))
+    foo["bar"]
+    foo["baz"]
+    foo["bar"].onNameAdded(lambda ns, name: dump("Added to foo/bar: " + name.toUri()))
+    foo["bar"]["barchild"]
 
 main()

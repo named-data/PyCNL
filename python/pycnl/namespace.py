@@ -23,6 +23,7 @@ operations to manage it.
 """
 
 import bisect
+import threading
 from pyndn.util import Name
 
 class Namespace(object):
@@ -42,6 +43,8 @@ class Namespace(object):
         # The keys of _children in sorted order, kept in sync with _children.
         # (We don't use OrderedDict because it doesn't sort keys on insert.)
         self._sortedChildrenKeys = []
+        # The dictionary key is the handler ID. The value is the onNameAdded function.
+        self._onNameAddedHandlers = {}
 
     def getName(self):
         """
@@ -79,7 +82,8 @@ class Namespace(object):
 
     def getChild(self, component):
         """
-        Get the child with the given name component, creating it if needed.
+        Get the child with the given name component, creating it if needed. This
+        is equivalent to namespace[component].
 
         :param component: The name component of the child.
         :type component: Name.Component or value for the Name.Component constructor
@@ -92,15 +96,7 @@ class Namespace(object):
         if component in self._children:
             return self._children[component]
         else:
-            # Create the child.
-            child = Namespace(Name(self._name).append(component))
-            child._parent = self
-            self._children[component] = child
-
-            # Keep _sortedChildrenKeys synced with _children.
-            bisect.insort(self._sortedChildrenKeys, component)
-
-            return child
+            return self._createChild(component)
 
     def getChildComponents(self):
         """
@@ -112,6 +108,35 @@ class Namespace(object):
         """
         return self._sortedChildrenKeys[:]
 
+    def onNameAdded(self, onNameAdded):
+        """
+        When a new name is added to this namespace at this node or any children,
+        call onNameAdded(namespace, name) as described below.
+
+        :param onNameAdded: This calls onNameAdded(namspace, name) where
+          namespace is this Namespace and name is the added Name including
+          components of the parent nodes.
+          NOTE: The library will log any exceptions raised by this callback, but
+          for better error handling the callback should catch and properly
+          handle any exceptions.
+        :type onComplete: function object
+        :return: The handler ID which you can use in removeHandler().
+        :rtype: int
+        """
+        handlerId = Namespace._getNextHandlerId()
+        self._onNameAddedHandlers[handlerId] = onNameAdded
+        return handlerId
+
+    def removeHandler(self, handlerId):
+        """
+        Remove the handler with the given handlerId. If the handlerId isn't
+        found, do nothing.
+
+        :param int handlerId: The handler ID returned, for example, from
+          onNameAdded.
+        """
+        self._onNameAddedHandlers.pop(handlerId, None)
+
     def __getitem__(self, key):
         """
         Call self.getChild(key).
@@ -120,6 +145,53 @@ class Namespace(object):
             raise ValueError("Namespace[] does not support slices.")
         return self.getChild(key)
 
+    def _createChild(self, component):
+        """
+        Create the child with the given name component and add it to this
+        namespace. This is a private method should only be called if the child
+        does not already exist. The application should use getChild.
+
+        :param component: The name component of the child.
+        :type component: Name.Component or value for the Name.Component constructor
+        :return: The child Namespace object.
+        :rtype: Namespace
+        """
+        child = Namespace(Name(self._name).append(component))
+        child._parent = self
+        self._children[component] = child
+
+        # Keep _sortedChildrenKeys synced with _children.
+        bisect.insort(self._sortedChildrenKeys, component)
+
+        # Fire handlers.
+        name = child.getName()
+        namespace = self
+        while namespace:
+            namespace._fireOnNameAdded(name)
+            namespace = namespace._parent
+
+        return child
+
+    def _fireOnNameAdded(self, name):
+        for id in self._onNameAddedHandlers:
+            # TODO: Catcn and log exceptions.
+            self._onNameAddedHandlers[id](self, name)
+
+    @staticmethod
+    def _getNextHandlerId():
+        """
+        Get the next unique handler ID. This uses a threading.Lock() to be
+        thread safe.
+
+        :return: The next handler ID.
+        :rtype: int
+        """
+        with Namespace._lastHandlerIdLock:
+            Namespace._lastHandlerId += 1
+            return Namespace._lastHandlerId
+
     name = property(getName)
     parent = property(getParent)
-    
+
+    _lastHandlerId = 0
+    _lastHandlerIdLock = threading.Lock()
