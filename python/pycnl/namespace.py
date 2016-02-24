@@ -44,8 +44,8 @@ class Namespace(object):
         # The keys of _children in sorted order, kept in sync with _children.
         # (We don't use OrderedDict because it doesn't sort keys on insert.)
         self._sortedChildrenKeys = []
-        # The dictionary key is the handler ID. The value is the onNameAdded function.
-        self._onNameAddedHandlers = {}
+        # The dictionary key is the callback ID. The value is the onNameAdded function.
+        self._onNameAddedCallbacks = {}
 
     def getName(self):
         """
@@ -112,35 +112,35 @@ class Namespace(object):
 
     def addOnNameAdded(self, onNameAdded):
         """
-        Add an onNameAdded handler. When a new name is added to this namespace
+        Add an onNameAdded callback. When a new name is added to this namespace
         at this node or any children, this calls
-        onNameAdded(namespace, addedNamespace, handlerId) as described below.
+        onNameAdded(namespace, addedNamespace, callbackId) as described below.
 
         :param onNameAdded: This calls
-          onNameAdded(namespace, addedNamespace, handlerId)
+          onNameAdded(namespace, addedNamespace, callbackId)
           where namespace is this Namespace, addedNamespace is the Namespace of
-          the added name, and handlerId is the handler ID returned by this
+          the added name, and callbackId is the callback ID returned by this
           method.
           NOTE: The library will log any exceptions raised by this callback, but
           for better error handling the callback should catch and properly
           handle any exceptions.
         :type onComplete: function object
-        :return: The handler ID which you can use in removeHandler().
+        :return: The callback ID which you can use in removeCallback().
         :rtype: int
         """
-        handlerId = Namespace.getNextHandlerId()
-        self._onNameAddedHandlers[handlerId] = onNameAdded
-        return handlerId
+        callbackId = Namespace.getNextCallbackId()
+        self._onNameAddedCallbacks[callbackId] = onNameAdded
+        return callbackId
 
-    def removeHandler(self, handlerId):
+    def removeCallback(self, callbackId):
         """
-        Remove the handler with the given handlerId. This does not search for
-        the handlerId in child nodes. If the handlerId isn't found, do nothing.
+        Remove the callback with the given callbackId. This does not search for
+        the callbackId in child nodes. If the callbackId isn't found, do nothing.
 
-        :param int handlerId: The handler ID returned, for example, from
+        :param int callbackId: The callback ID returned, for example, from
           onNameAdded.
         """
-        self._onNameAddedHandlers.pop(handlerId, None)
+        self._onNameAddedCallbacks.pop(callbackId, None)
 
     def __getitem__(self, key):
         """
@@ -168,7 +168,7 @@ class Namespace(object):
         # Keep _sortedChildrenKeys synced with _children.
         bisect.insort(self._sortedChildrenKeys, component)
 
-        # Fire handlers.
+        # Fire callbacks.
         name = child.getName()
         namespace = self
         while namespace:
@@ -178,28 +178,28 @@ class Namespace(object):
         return child
 
     def _fireOnNameAdded(self, addedNamespace):
-        for id in self._onNameAddedHandlers:
+        for id in self._onNameAddedCallbacks:
             try:
-                self._onNameAddedHandlers[id](self, addedNamespace, id)
+                self._onNameAddedCallbacks[id](self, addedNamespace, id)
             except:
                 logging.exception("Error in onNameAdded")
 
     @staticmethod
-    def getNextHandlerId():
+    def getNextCallbackId():
         """
-        Get the next unique handler ID. This uses a threading.Lock() to be
+        Get the next unique callback ID. This uses a threading.Lock() to be
         thread safe. This is an internal method only meant to be called by
         library classes; the application should not call it.
 
-        :return: The next handler ID.
+        :return: The next callback ID.
         :rtype: int
         """
-        with Namespace._lastHandlerIdLock:
-            Namespace._lastHandlerId += 1
-            return Namespace._lastHandlerId
+        with Namespace._lastCallbackIdLock:
+            Namespace._lastCallbackId += 1
+            return Namespace._lastCallbackId
 
     name = property(getName)
     parent = property(getParent)
 
-    _lastHandlerId = 0
-    _lastHandlerIdLock = threading.Lock()
+    _lastCallbackId = 0
+    _lastCallbackIdLock = threading.Lock()
