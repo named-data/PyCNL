@@ -17,13 +17,14 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 # A copy of the GNU Lesser General Public License is in the file COPYING.
 
-from pycnl import namespace
-__all__ = ['namespace']
+from pycnl import namespace, segment_stream
+__all__ = ['namespace', 'segment_stream']
 
 import sys as _sys
 
 try:
     from pycnl.namespace import *
+    from pycnl.segment_stream import *
 except ImportError:
     del _sys.modules[__name__]
     raise

@@ -21,20 +21,40 @@
 This tests updating a namespace based on segmented content.
 """
 
-from pycnl import Namespace
+import time
+import sys
+from pyndn import Face
+from pycnl import Namespace, SegmentStream
 
 def dump(*list):
     result = ""
     for element in list:
-        result += (element if type(element) is str else repr(element)) + " "
+        result += (element if type(element) is str else str(element)) + " "
     print(result)
 
 def main():
-    foo = Namespace("/ndn/ucla/foo")
-    foo.onNameAdded(lambda ns, addedNamespace: dump("Added to foo: " + addedNamespace.getName().toUri()))
-    foo["bar"]
-    foo["baz"]
-    foo["bar"].onNameAdded(lambda ns, addedNamespace: dump("Added to foo/bar: " + addedNamespace.getName().toUri()))
-    foo["bar"]["barchild"]
+    face = Face("memoria.ndn.ucla.edu")
+    page = Namespace("/ndn/edu/ucla/remap/demo/ndn-js-test/named-data.net/project/ndn-ar2011.html/%FDT%F7n%9E")
+    page.onNameAdded(
+      lambda ns, segment, id: dump("Got segment", segment.name[-1]))
+
+    enabled = [True]
+    def onSegment(ns, segment, id):
+        if segment != None:
+            sys.stdout.write(segment.content.toRawStr())
+        else:
+            enabled[0] = False
+
+    stream = SegmentStream(page, face)
+    stream.onSegment(onSegment)
+    stream.start()
+
+    # Loop calling processEvents until a callback sets enabled[0] = False.
+    while enabled[0]:
+        face.processEvents()
+        # We need to sleep for a few milliseconds so we don't use 100% of the CPU.
+        time.sleep(0.01)
+
+    face.shutdown()
 
 main()
