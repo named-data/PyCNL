@@ -32,7 +32,7 @@ class SegmentStream(object):
     def __init__(self, namespace, face):
         """
         Create a SegmentStream object to attach to the given namespace and use
-        the given face. You can add handlers and set options, then you should
+        the given face. You can add callbacks and set options, then you should
         call start().
 
         :param Namespace namespace: The Namespace node whose children are the
@@ -45,34 +45,34 @@ class SegmentStream(object):
         self._didRequestFinalSegment = False
         self._finalSegmentNumber = None
         self._interestPipelineSize = 8
-        # The dictionary key is the handler ID. The value is the onSegment function.
-        self._onSegmentHandlers = {}
+        # The dictionary key is the callback ID. The value is the onSegment function.
+        self._onSegmentCallbacks = {}
 
         self._interestTemplate = Interest()
         self._interestTemplate.setInterestLifetimeMilliseconds(4000)
 
     def addOnSegment(self, onSegment):
         """
-        Add an onSegment handler. When a new segment is is available, this calls
-        onSegment(namespace, segment, handlerId) as described below. Segments
+        Add an onSegment callback. When a new segment is is available, this calls
+        onSegment(namespace, segment, callbackId) as described below. Segments
         are supplied in order.
 
-        :param onSegment: This calls onSegment(namespace, segment, handlerId)
+        :param onSegment: This calls onSegment(namespace, segment, callbackId)
           where namespace is getNamespace(), segment is the segment Data packet,
-          and handlerId is the handler ID returned by this method. You must
+          and callbackId is the callback ID returned by this method. You must
           check if the segment values is None because after supplying the final
-          segment, this calls onSegment(namespace, None, handlerId) to signal
+          segment, this calls onSegment(namespace, None, callbackId) to signal
           the "end of stream".
           NOTE: The library will log any exceptions raised by this callback, but
           for better error handling the callback should catch and properly
           handle any exceptions.
         :type onComplete: function object
-        :return: The handler ID which you can use in removeHandler().
+        :return: The callback ID which you can use in removeCallback().
         :rtype: int
         """
-        handlerId = Namespace.getNextHandlerId()
-        self._onSegmentHandlers[handlerId] = onSegment
-        return handlerId
+        callbackId = Namespace.getNextCallbackId()
+        self._onSegmentCallbacks[callbackId] = onSegment
+        return callbackId
 
     def getNamespace(self):
         """
@@ -181,9 +181,9 @@ class SegmentStream(object):
           ExponentialReExpress.makeOnTimeout(self._face, self._onData, None))
 
     def _fireOnSegment(self, segment):
-        for id in self._onSegmentHandlers:
+        for id in self._onSegmentCallbacks:
             try:
-                self._onSegmentHandlers[id](self, segment, id)
+                self._onSegmentCallbacks[id](self, segment, id)
             except:
                 logging.exception("Error in onSegment")
 
