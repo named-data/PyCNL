@@ -37,7 +37,7 @@ def main():
     page = Namespace("/ndn/edu/ucla/remap/demo/ndn-js-test/named-data.net/project/ndn-ar2011.html/%FDT%F7n%9E")
 
     enabled = [True]
-    def onSegment(ns, segment, id):
+    def onSegment(stream, segment, id):
         if segment != None:
             sys.stdout.write(segment.content.toRawStr())
         else:
@@ -52,6 +52,11 @@ def main():
         face.processEvents()
         # We need to sleep for a few milliseconds so we don't use 100% of the CPU.
         time.sleep(0.01)
+
+    for component in reversed(page.getChildComponents()):
+        if component.isSegment():
+            dump("Final segment:", component)
+            break
 
     face.shutdown()
 
