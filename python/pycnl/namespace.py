@@ -138,7 +138,7 @@ class Namespace(object):
         the callbackId in child nodes. If the callbackId isn't found, do nothing.
 
         :param int callbackId: The callback ID returned, for example, from
-          onNameAdded.
+          addOnNameAdded.
         """
         self._onNameAddedCallbacks.pop(callbackId, None)
 
