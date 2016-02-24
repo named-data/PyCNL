@@ -18,8 +18,8 @@
 # A copy of the GNU Lesser General Public License is in the file COPYING.
 
 """
-Namespace is the main class which represents the name tree and related
-operations to manage it.
+This module defines the Namespace class which is the main class that represents
+the name tree and related operations to manage it.
 """
 
 import bisect
@@ -113,11 +113,14 @@ class Namespace(object):
     def onNameAdded(self, onNameAdded):
         """
         When a new name is added to this namespace at this node or any children,
-        call onNameAdded(namespace, addedNamespace) as described below.
+        call onNameAdded(namespace, addedNamespace, handlerId) as described
+        below.
 
-        :param onNameAdded: This calls onNameAdded(namespace, addedNamespace)
-          where namespace is this Namespace and addedNamespace is namespace of
-          the added name.
+        :param onNameAdded: This calls
+          onNameAdded(namespace, addedNamespace, handlerId)
+          where namespace is this Namespace, addedNamespace is the Namespace of
+          the added name, and handlerId is the handler ID returned by this
+          method.
           NOTE: The library will log any exceptions raised by this callback, but
           for better error handling the callback should catch and properly
           handle any exceptions.
@@ -125,7 +128,7 @@ class Namespace(object):
         :return: The handler ID which you can use in removeHandler().
         :rtype: int
         """
-        handlerId = Namespace._getNextHandlerId()
+        handlerId = Namespace.getNextHandlerId()
         self._onNameAddedHandlers[handlerId] = onNameAdded
         return handlerId
 
@@ -177,15 +180,16 @@ class Namespace(object):
     def _fireOnNameAdded(self, addedNamespace):
         for id in self._onNameAddedHandlers:
             try:
-                self._onNameAddedHandlers[id](self, addedNamespace)
+                self._onNameAddedHandlers[id](self, addedNamespace, id)
             except:
                 logging.exception("Error in onNameAdded")
 
     @staticmethod
-    def _getNextHandlerId():
+    def getNextHandlerId():
         """
         Get the next unique handler ID. This uses a threading.Lock() to be
-        thread safe.
+        thread safe. This is an internal method only meant to be called by
+        library classes; the application should not call it.
 
         :return: The next handler ID.
         :rtype: int
