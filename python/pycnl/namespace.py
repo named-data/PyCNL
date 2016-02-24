@@ -110,11 +110,11 @@ class Namespace(object):
         """
         return self._sortedChildrenKeys[:]
 
-    def onNameAdded(self, onNameAdded):
+    def addOnNameAdded(self, onNameAdded):
         """
-        When a new name is added to this namespace at this node or any children,
-        call onNameAdded(namespace, addedNamespace, handlerId) as described
-        below.
+        Add an onNameAdded handler. When a new name is added to this namespace
+        at this node or any children, this calls
+        onNameAdded(namespace, addedNamespace, handlerId) as described below.
 
         :param onNameAdded: This calls
           onNameAdded(namespace, addedNamespace, handlerId)
