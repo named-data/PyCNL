@@ -57,10 +57,10 @@ class SegmentStream(object):
         onSegment(namespace, segment, callbackId) as described below. Segments
         are supplied in order.
 
-        :param onSegment: This calls onSegment(namespace, segment, callbackId)
-          where namespace is getNamespace(), segment is the segment Data packet,
+        :param onSegment: This calls onSegment(stream, segment, callbackId)
+          where stream is this SegmentStream, segment is the segment Data packet,
           and callbackId is the callback ID returned by this method. You must
-          check if the segment values is None because after supplying the final
+          check if the segment value is None because after supplying the final
           segment, this calls onSegment(namespace, None, callbackId) to signal
           the "end of stream".
           NOTE: The library will log any exceptions raised by this callback, but
@@ -73,6 +73,16 @@ class SegmentStream(object):
         callbackId = Namespace.getNextCallbackId()
         self._onSegmentCallbacks[callbackId] = onSegment
         return callbackId
+
+    def removeCallback(self, callbackId):
+        """
+        Remove the callback with the given callbackId. If the callbackId isn't
+        found, do nothing.
+
+        :param int callbackId: The callback ID returned, for example, from
+          addOnSegment.
+        """
+        self._onSegmentCallbacks.pop(callbackId, None)
 
     def getNamespace(self):
         """
