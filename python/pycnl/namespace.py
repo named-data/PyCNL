@@ -53,7 +53,8 @@ class Namespace(object):
         components of parent nodes. To get the name component of just this node,
         use getName()[-1].
 
-        :return: The name of this namespace.
+        :return: The name of this namespace. NOTE: You must not change the
+          name - if you need to change it then make a copy.
         :rtype: Name
         """
         return self._name
@@ -112,11 +113,11 @@ class Namespace(object):
     def onNameAdded(self, onNameAdded):
         """
         When a new name is added to this namespace at this node or any children,
-        call onNameAdded(namespace, name) as described below.
+        call onNameAdded(namespace, addedNamespace) as described below.
 
-        :param onNameAdded: This calls onNameAdded(namespace, name) where
-          namespace is this Namespace and name is the added Name including
-          components of the parent nodes.
+        :param onNameAdded: This calls onNameAdded(namespace, addedNamespace)
+          where namespace is this Namespace and addedNamespace is namespace of
+          the added name.
           NOTE: The library will log any exceptions raised by this callback, but
           for better error handling the callback should catch and properly
           handle any exceptions.
@@ -130,8 +131,8 @@ class Namespace(object):
 
     def removeHandler(self, handlerId):
         """
-        Remove the handler with the given handlerId. If the handlerId isn't
-        found, do nothing.
+        Remove the handler with the given handlerId. This does not search for
+        the handlerId in child nodes. If the handlerId isn't found, do nothing.
 
         :param int handlerId: The handler ID returned, for example, from
           onNameAdded.
