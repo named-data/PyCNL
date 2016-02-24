@@ -35,8 +35,6 @@ def dump(*list):
 def main():
     face = Face("memoria.ndn.ucla.edu")
     page = Namespace("/ndn/edu/ucla/remap/demo/ndn-js-test/named-data.net/project/ndn-ar2011.html/%FDT%F7n%9E")
-    page.onNameAdded(
-      lambda ns, segment, id: dump("Got segment", segment.name[-1]))
 
     enabled = [True]
     def onSegment(ns, segment, id):
@@ -46,7 +44,7 @@ def main():
             enabled[0] = False
 
     stream = SegmentStream(page, face)
-    stream.onSegment(onSegment)
+    stream.addOnSegment(onSegment)
     stream.start()
 
     # Loop calling processEvents until a callback sets enabled[0] = False.

@@ -51,9 +51,9 @@ class SegmentStream(object):
         self._interestTemplate = Interest()
         self._interestTemplate.setInterestLifetimeMilliseconds(4000)
 
-    def onSegment(self, onSegment):
+    def addOnSegment(self, onSegment):
         """
-        When a new segment is is available call
+        Add an onSegment handler. When a new segment is is available, this calls
         onSegment(namespace, segment, handlerId) as described below. Segments
         are supplied in order.
 
@@ -109,9 +109,9 @@ class SegmentStream(object):
         """
         Start fetching segment Data packets and adding them as children of
         getNamespace(), calling any onSegment callbacks in order as the
-        segments are received. Even though the segments in the onSegment calls
-        are in order, note that children are not necessarily added in order to
-        the Namespace node.
+        segments are received. Even though the segments supplied to onSegment
+        are in order, note that children of the Namespace node are not
+        necessarily added in order.
         """
         self._expressInterest(self._namespace.getName(), self._interestTemplate)
         
