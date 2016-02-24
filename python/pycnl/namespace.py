@@ -178,11 +178,14 @@ class Namespace(object):
         return child
 
     def _fireOnNameAdded(self, addedNamespace):
-        for id in self._onNameAddedCallbacks:
-            try:
-                self._onNameAddedCallbacks[id](self, addedNamespace, id)
-            except:
-                logging.exception("Error in onNameAdded")
+        # Copy the keys before iterating since callbacks can change the list.
+        for id in list(self._onNameAddedCallbacks.keys()):
+            # A callback on a previous pass may have removed this callback, so check.
+            if id in self._onNameAddedCallbacks:
+                try:
+                    self._onNameAddedCallbacks[id](self, addedNamespace, id)
+                except:
+                    logging.exception("Error in onNameAdded")
 
     @staticmethod
     def getNextCallbackId():

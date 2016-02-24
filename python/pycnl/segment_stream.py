@@ -191,11 +191,14 @@ class SegmentStream(object):
           ExponentialReExpress.makeOnTimeout(self._face, self._onData, None))
 
     def _fireOnSegment(self, segment):
-        for id in self._onSegmentCallbacks:
-            try:
-                self._onSegmentCallbacks[id](self, segment, id)
-            except:
-                logging.exception("Error in onSegment")
+        # Copy the keys before iterating since callbacks can change the list.
+        for id in self._onSegmentCallbacks.keys():
+            # A callback on a previous pass may have removed this callback, so check.
+            if id in list(self._onSegmentCallbacks.keys()):
+                try:
+                    self._onSegmentCallbacks[id](self, segment, id)
+                except:
+                    logging.exception("Error in onSegment")
 
     class _SegmentStore(object):
         def __init__(self):
