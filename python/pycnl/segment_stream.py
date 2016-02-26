@@ -18,7 +18,7 @@
 # A copy of the GNU Lesser General Public License is in the file COPYING.
 
 """
-This module defines the SegmentStream class which attached to a Namespace node
+This module defines the SegmentStream class which attaches to a Namespace node
 to fetch and return child segment packets in order.
 """
 
@@ -53,7 +53,7 @@ class SegmentStream(object):
 
     def addOnSegment(self, onSegment):
         """
-        Add an onSegment callback. When a new segment is is available, this calls
+        Add an onSegment callback. When a new segment is available, this calls
         onSegment(namespace, segment, callbackId) as described below. Segments
         are supplied in order.
 
@@ -66,7 +66,7 @@ class SegmentStream(object):
           NOTE: The library will log any exceptions raised by this callback, but
           for better error handling the callback should catch and properly
           handle any exceptions.
-        :type onComplete: function object
+        :type onSegment: function object
         :return: The callback ID which you can use in removeCallback().
         :rtype: int
         """
