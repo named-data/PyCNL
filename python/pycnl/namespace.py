@@ -124,7 +124,7 @@ class Namespace(object):
           NOTE: The library will log any exceptions raised by this callback, but
           for better error handling the callback should catch and properly
           handle any exceptions.
-        :type onComplete: function object
+        :type onNameAdded: function object
         :return: The callback ID which you can use in removeCallback().
         :rtype: int
         """
@@ -169,7 +169,6 @@ class Namespace(object):
         bisect.insort(self._sortedChildrenKeys, component)
 
         # Fire callbacks.
-        name = child.getName()
         namespace = self
         while namespace:
             namespace._fireOnNameAdded(child)
