@@ -113,8 +113,7 @@ class Namespace(object):
     def addOnNameAdded(self, onNameAdded):
         """
         Add an onNameAdded callback. When a new name is added to this namespace
-        at this node or any children, this calls
-        onNameAdded(namespace, addedNamespace, callbackId) as described below.
+        at this node or any children, this calls onNameAdded as described below.
 
         :param onNameAdded: This calls
           onNameAdded(namespace, addedNamespace, callbackId)
@@ -153,8 +152,8 @@ class Namespace(object):
     def _createChild(self, component):
         """
         Create the child with the given name component and add it to this
-        namespace. This is a private method should only be called if the child
-        does not already exist. The application should use getChild.
+        namespace. This private method should only be called if the child does
+        not already exist. The application should use getChild.
 
         :param component: The name component of the child.
         :type component: Name.Component or value for the Name.Component constructor
