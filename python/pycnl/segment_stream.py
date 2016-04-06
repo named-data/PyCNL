@@ -54,8 +54,7 @@ class SegmentStream(object):
     def addOnSegment(self, onSegment):
         """
         Add an onSegment callback. When a new segment is available, this calls
-        onSegment(namespace, segment, callbackId) as described below. Segments
-        are supplied in order.
+        onSegment as described below. Segments are supplied in order.
 
         :param onSegment: This calls onSegment(stream, segment, callbackId)
           where stream is this SegmentStream, segment is the segment Data packet,

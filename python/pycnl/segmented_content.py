@@ -48,7 +48,7 @@ class SegmentedContent(object):
     def addOnContent(self, onContent):
         """
         Add an onContent callback. When all the segments are available, this
-        calls onContent(namespace, content, callbackId) as described below.
+        calls onContent as described below.
 
         :param onContent: This calls onContent(handler, content, callbackId)
           where handler is this SegmentedContent, content is a Blob with the
