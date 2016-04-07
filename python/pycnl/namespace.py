@@ -31,10 +31,10 @@ class Namespace(object):
     def __init__(self, name):
         """
         Create a Namespace object with the given name, and with no parent. This
-        is the top of the name tree. To create child nodes, use
+        is the root of the name tree. To create child nodes, use
         myNamespace.getChild("foo") or myNamespace["foo"].
 
-        :param Name name: The name of this top-level node in the namespace. This
+        :param Name name: The name of this root node in the namespace. This
           makes a copy of the name.
         """
         self._name = Name(name)
@@ -44,8 +44,11 @@ class Namespace(object):
         # The keys of _children in sorted order, kept in sync with _children.
         # (We don't use OrderedDict because it doesn't sort keys on insert.)
         self._sortedChildrenKeys = []
+        self._data = None
         # The dictionary key is the callback ID. The value is the onNameAdded function.
         self._onNameAddedCallbacks = {}
+        # The dictionary key is the callback ID. The value is the onDataSet function.
+        self._onDataSetCallbacks = {}
 
     def getName(self):
         """
@@ -63,10 +66,22 @@ class Namespace(object):
         """
         Get the parent namespace.
 
-        :return: The parent namespace, or None if this is the top of the tree.
+        :return: The parent namespace, or None if this is the root of the tree.
         :rtype: Namespace
         """
         return self._parent
+
+    def getRoot(self):
+        """
+        Get the root namespace (which has no parent node).
+
+        :return: The root namespace.
+        :rtype: Namespace
+        """
+        result = self
+        while result._parent:
+            result = result._parent
+        return result
 
     def hasChild(self, component):
         """
@@ -110,6 +125,57 @@ class Namespace(object):
         """
         return self._sortedChildrenKeys[:]
 
+    def setData(self, data):
+        """
+        Find or create the Namespace object whose name equals the Data packet
+        name and attach the Data packet to that "dataNamespace". If a Data
+        packet is already attached to the dataNamespace, this replaces it. If
+        the name of this Namespace is a prefix of the Data packet name, then
+        this finds or creates child Namespace nodes as needed. If not a prefix,
+        then this will search parent nodes as needed. So in theory it doesn't
+        matter which Namespace node you call setData but it is more efficient
+        to call setData on the closest node.
+
+        :param Data data: The Data packet object whose name is the name in this
+          Namespace. For efficiency, this does not copy the Data packet object.
+          If your application may change the object later, then you must call
+          setData with a copy of the object.
+        :raises RuntimeError: If the name of the root Namespace node is not a 
+          prefix of the Data packet name (so that it is not possible to create
+          any children to match the Data name).
+        """
+        # Find the starting Namespace to which we may have to add children.
+        dataNamespace = self
+        while not dataNamespace._name.isPrefixOf(data.name):
+            dataNamespace = dataNamespace._parent
+            if dataNamespace == None:
+                raise RuntimeError(
+                  "The root Namespace name must be a prefix of the Data packet name")
+
+        # Find or create the child node whose name equals the data name. We know
+        # startingNamespace is a prefix, so we can just go by component count
+        # instead of a full compare.
+        while dataNamespace._name.size() < data.name.size():
+            nextComponent = data.name[dataNamespace._name.size()]
+            dataNamespace = dataNamespace[nextComponent]
+
+        dataNamespace._data = data
+
+        # Fire callbacks.
+        namespace = dataNamespace
+        while namespace:
+            namespace._fireOnDataSet(dataNamespace)
+            namespace = namespace._parent
+
+    def getData(self):
+        """
+        Get the Data packet attached to this Namespace object.
+
+        :return: The Data packet object, or None if not set.
+        :rtype: Data
+        """
+        return self._data
+
     def addOnNameAdded(self, onNameAdded):
         """
         Add an onNameAdded callback. When a new name is added to this namespace
@@ -131,6 +197,28 @@ class Namespace(object):
         self._onNameAddedCallbacks[callbackId] = onNameAdded
         return callbackId
 
+    def addOnDataSet(self, onDataSet):
+        """
+        Add an onDataSet callback. When a Data packet is attached to this
+        Namespace node or any children, this calls onDataSet as described below.
+
+        :param onDataSet: This calls
+          onDataSet(namespace, dataNamespace, callbackId)
+          where namespace is this Namespace, addedToNamespace is the Namespace
+          to which the Data packet was attached, and callbackId is the callback
+          ID returned by this method. To get the data packet, use
+          dataNamespace.getData().
+          NOTE: The library will log any exceptions raised by this callback, but
+          for better error handling the callback should catch and properly
+          handle any exceptions.
+        :type onDataSet: function object
+        :return: The callback ID which you can use in removeCallback().
+        :rtype: int
+        """
+        callbackId = Namespace.getNextCallbackId()
+        self._onDataSetCallbacks[callbackId] = onDataSet
+        return callbackId
+
     def removeCallback(self, callbackId):
         """
         Remove the callback with the given callbackId. This does not search for
@@ -140,6 +228,7 @@ class Namespace(object):
           addOnNameAdded.
         """
         self._onNameAddedCallbacks.pop(callbackId, None)
+        self._onDataSetCallbacks.pop(callbackId, None)
 
     def __getitem__(self, key):
         """
@@ -185,6 +274,16 @@ class Namespace(object):
                 except:
                     logging.exception("Error in onNameAdded")
 
+    def _fireOnDataSet(self, dataNamespace):
+        # Copy the keys before iterating since callbacks can change the list.
+        for id in list(self._onDataSetCallbacks.keys()):
+            # A callback on a previous pass may have removed this callback, so check.
+            if id in self._onDataSetCallbacks:
+                try:
+                    self._onDataSetCallbacks[id](self, dataNamespace, id)
+                except:
+                    logging.exception("Error in onDataSet")
+
     @staticmethod
     def getNextCallbackId():
         """
@@ -201,6 +300,7 @@ class Namespace(object):
 
     name = property(getName)
     parent = property(getParent)
+    data = property(getData)
 
     _lastCallbackId = 0
     _lastCallbackIdLock = threading.Lock()
