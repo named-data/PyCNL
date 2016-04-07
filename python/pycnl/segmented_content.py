@@ -111,9 +111,9 @@ class SegmentedContent(object):
 
     def _fireOnContent(self, content):
         # Copy the keys before iterating since callbacks can change the list.
-        for id in self._onContentCallbacks.keys():
+        for id in list(self._onContentCallbacks.keys()):
             # A callback on a previous pass may have removed this callback, so check.
-            if id in list(self._onContentCallbacks.keys()):
+            if id in self._onContentCallbacks.keys():
                 try:
                     self._onContentCallbacks[id](self, content, id)
                 except:

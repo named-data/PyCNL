@@ -191,9 +191,9 @@ class SegmentStream(object):
 
     def _fireOnSegment(self, segment):
         # Copy the keys before iterating since callbacks can change the list.
-        for id in self._onSegmentCallbacks.keys():
+        for id in list(self._onSegmentCallbacks.keys()):
             # A callback on a previous pass may have removed this callback, so check.
-            if id in list(self._onSegmentCallbacks.keys()):
+            if id in self._onSegmentCallbacks.keys():
                 try:
                     self._onSegmentCallbacks[id](self, segment, id)
                 except:
