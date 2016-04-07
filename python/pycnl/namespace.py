@@ -25,7 +25,8 @@ the name tree and related operations to manage it.
 import bisect
 import threading
 import logging
-from pyndn.util import Name
+from pyndn import Name, Interest
+from pyndn.util import ExponentialReExpress
 
 class Namespace(object):
     def __init__(self, name):
@@ -45,6 +46,7 @@ class Namespace(object):
         # (We don't use OrderedDict because it doesn't sort keys on insert.)
         self._sortedChildrenKeys = []
         self._data = None
+        self._face = None
         # The dictionary key is the callback ID. The value is the onNameAdded function.
         self._onNameAddedCallbacks = {}
         # The dictionary key is the callback ID. The value is the onDataSet function.
@@ -129,12 +131,12 @@ class Namespace(object):
         """
         Find or create the Namespace object whose name equals the Data packet
         name and attach the Data packet to that "dataNamespace". If a Data
-        packet is already attached to the dataNamespace, this replaces it. If
-        the name of this Namespace is a prefix of the Data packet name, then
-        this finds or creates child Namespace nodes as needed. If not a prefix,
-        then this will search parent nodes as needed. So in theory it doesn't
-        matter which Namespace node you call setData but it is more efficient
-        to call setData on the closest node.
+        packet is already attached to the dataNamespace, do nothing. If the name
+        of this Namespace is a prefix of the Data packet name, then this finds
+        or creates child Namespace nodes as needed. If not a prefix, then this
+        will search parent nodes as needed. So in theory it doesn't matter which
+        Namespace node you call setData but it is more efficient to call setData
+        on the closest node.
 
         :param Data data: The Data packet object whose name is the name in this
           Namespace. For efficiency, this does not copy the Data packet object.
@@ -159,6 +161,9 @@ class Namespace(object):
             nextComponent = data.name[dataNamespace._name.size()]
             dataNamespace = dataNamespace[nextComponent]
 
+        if dataNamespace._data != None:
+            # We already have an attached object.
+            return
         dataNamespace._data = data
 
         # Fire callbacks.
@@ -218,6 +223,57 @@ class Namespace(object):
         callbackId = Namespace.getNextCallbackId()
         self._onDataSetCallbacks[callbackId] = onDataSet
         return callbackId
+
+    def setFace(self, face):
+        """
+        Set the Face used when expressInterest is called on this or child nodes
+        (unless a child node has a different Face).
+        TODO: Replace this by a mechanism for requesting a Data object which is
+        more general than a Face network operation.
+
+        :param Face face: The Face object. If this Namespace object already has
+        a Face object, it is replaced.
+        """
+        self._face = face
+
+    def expressInterest(self, interestTemplate = None):
+        """
+        Call expressInterest on this (or a parent's) Face where the interest
+        name is the name of this Namespace node. When the Data packet is
+        received this calls setData, so you should use a callback with
+        addOnDataSet (or check getData() later). This uses ExponentialReExpress
+        to re-express a timed-out interest with longer lifetimes.
+        TODO: How to alert the application on a final interest timeout?
+        TODO: Replace this by a mechanism for requesting a Data object which is
+        more general than a Face network operation.
+        :raises RuntimeError: If a Face object has not been set for this or a
+          parent Namespace node.
+
+        :param Interest interestTemplate: (optional) The interest template for
+          expressInterest. If omitted, just use a default interest lifetime.
+        """
+        face = self._getFace()
+        if face == None:
+            raise ValueError("A Face object has not been set for this or a parent.")
+
+        def onData(interest, data):
+            self.setData(data)
+
+        if interestTemplate == None:
+            interestTemplate = Interest()
+            interestTemplate.setInterestLifetimeMilliseconds(4000)
+        face.expressInterest(
+          self._name, interestTemplate, onData,
+          ExponentialReExpress.makeOnTimeout(face, onData, None))
+
+    def _getFace(self):
+        namespace = self
+        while namespace != None:
+            if namespace._face != None:
+                return namespace._face
+            namespace = namespace._parent
+
+        return None
 
     def removeCallback(self, callbackId):
         """
