@@ -179,12 +179,6 @@ class SegmentStream(object):
 
     def _expressInterest(self, name, interestTemplate):
         # TODO: Supply the caller's timeout.
-        def dump(*list):
-            result = ""
-            for element in list:
-                result += (element if type(element) is str else str(element)) + " "
-            print(result)
-
         self._face.expressInterest(
           name, interestTemplate, self._onData,
           ExponentialReExpress.makeOnTimeout(self._face, self._onData, None))
