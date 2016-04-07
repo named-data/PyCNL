@@ -34,13 +34,14 @@ def dump(*list):
 def main():
     face = Face("memoria.ndn.ucla.edu")
     page = Namespace("/ndn/edu/ucla/remap/demo/ndn-js-test/named-data.net/project/ndn-ar2011.html/%FDT%F7n%9E")
+    page.setFace(face)
 
     enabled = [True]
     def onContent(handler, content, id):
         dump("Got segmented content size", content.size())
         enabled[0] = False
 
-    contentHandler = SegmentedContent(SegmentStream(page, face))
+    contentHandler = SegmentedContent(SegmentStream(page))
     contentHandler.addOnContent(onContent)
     contentHandler.getSegmentStream().start()
 
