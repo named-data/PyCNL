@@ -25,31 +25,26 @@ to fetch and return child segment packets in order.
 import logging
 import bisect
 from pyndn import Name, Interest
-from pyndn.util import ExponentialReExpress
 from pycnl.namespace import Namespace
 
 class SegmentStream(object):
-    def __init__(self, namespace, face):
+    def __init__(self, namespace):
         """
-        Create a SegmentStream object to attach to the given namespace and use
-        the given face. You can add callbacks and set options, then you should
-        call start().
+        Create a SegmentStream object to attach to the given namespace. You can
+        add callbacks and set options, then you should call start().
 
         :param Namespace namespace: The Namespace node whose children are the
           names of segment Data packets.
-        :param Face face: This calls face.expressInterest to fetch segments.
         """
         self._namespace = namespace
-        self._face = face
-        self._segmentStore = SegmentStream._SegmentStore()
+        self._maxRetrievedSegmentNumber = -1
         self._didRequestFinalSegment = False
         self._finalSegmentNumber = None
         self._interestPipelineSize = 8
         # The dictionary key is the callback ID. The value is the onSegment function.
         self._onSegmentCallbacks = {}
 
-        self._interestTemplate = Interest()
-        self._interestTemplate.setInterestLifetimeMilliseconds(4000)
+        self._namespace.addOnDataSet(self._onDataSet)
 
     def addOnSegment(self, onSegment):
         """
@@ -122,21 +117,17 @@ class SegmentStream(object):
         are in order, note that children of the Namespace node are not
         necessarily added in order.
         """
-        self._expressInterest(self._namespace.getName(), self._interestTemplate)
+        self._namespace.expressInterest()
         
-    def _onData(self, interest, data):
+    def _onDataSet(self, namespace, dataNamespace, callbackId):
+        data = dataNamespace.data
         if not (len(data.name) == len(self._namespace.getName()) + 1 and
                 data.name[-1].isSegment()):
             # Not a segment, ignore.
+            # Debug: If this is the first call, we still need to request segments.
             return
 
         # TODO: Validate the Data packet.
-
-        # Update the Namespace.
-        self._namespace.getChild(data.name[-1])
-
-        segmentNumber = data.name[-1].toSegment()
-        self._segmentStore.storeData(segmentNumber, data)
 
         if (data.getMetaInfo().getFinalBlockId().getValue().size() > 0 and
              data.getMetaInfo().getFinalBlockId().isSegment()):
@@ -144,15 +135,16 @@ class SegmentStream(object):
 
         # Retrieve as many segments as possible from the store.
         while True:
-            result = self._segmentStore.maybeRetrieveNextEntry()
-            if result == None:
+            nextSegmentNumber = self._maxRetrievedSegmentNumber + 1
+            nextSegment = self._namespace[Name.Component.fromSegment(nextSegmentNumber)]
+            if nextSegment.data == None:
                 break
 
-            (storeSegmentNumber, storeData) = result
-            self._fireOnSegment(storeData)
+            self._maxRetrievedSegmentNumber = nextSegmentNumber
+            self._fireOnSegment(nextSegment.data)
 
             if (self._finalSegmentNumber != None and
-                storeSegmentNumber == self._finalSegmentNumber):
+                nextSegmentNumber == self._finalSegmentNumber):
                 # Finished.
                 self._fireOnSegment(None)
                 return
@@ -160,28 +152,47 @@ class SegmentStream(object):
         if self._finalSegmentNumber == None and not self._didRequestFinalSegment:
             self._didRequestFinalSegment = True
             # Try to determine the final segment now.
-            # Copy the template to set the childSelector.
-            interestTemplateCopy = Interest(self._interestTemplate)
-            interestTemplateCopy.setChildSelector(1)
-            self._expressInterest(self._namespace.getName(), interestTemplateCopy)
+            interestTemplate = Interest()
+            interestTemplate.setInterestLifetimeMilliseconds(4000)
+            interestTemplate.setChildSelector(1)
+            self._namespace.expressInterest(interestTemplate)
 
         # Request new segments.
-        toRequest = self._segmentStore.requestSegmentNumbers(
-          self._interestPipelineSize)
-        for requestSegmentNumber in toRequest:
-            if (self._finalSegmentNumber != None and
-                requestSegmentNumber > self._finalSegmentNumber):
+        childComponents = self._namespace.getChildComponents()
+        # First, count how many are already requested and not received.
+        nRequestedSegments = 0
+        for component in childComponents:
+            if not component.isSegment():
+                # The namespace contains a child other than a segment. Ignore.
                 continue
 
-            name = Name(self._namespace.getName())
-            name.appendSegment(requestSegmentNumber)
-            self._expressInterest(name, self._interestTemplate)
+            child = self._namespace[component]
+            if (child.data == None and
+                  hasattr(child, '_debugSegmentStreamDidExpressInterest') and
+                  child._debugSegmentStreamDidExpressInterest):
+                nRequestedSegments += 1
+                if nRequestedSegments >= self._interestPipelineSize:
+                    # Already maxed out on requests.
+                    break
 
-    def _expressInterest(self, name, interestTemplate):
-        # TODO: Supply the caller's timeout.
-        self._face.expressInterest(
-          name, interestTemplate, self._onData,
-          ExponentialReExpress.makeOnTimeout(self._face, self._onData, None))
+        # Now find unrequested segment numbers and request.
+        segmentNumber = self._maxRetrievedSegmentNumber
+        while nRequestedSegments < self._interestPipelineSize:
+            segmentNumber += 1
+            if (self._finalSegmentNumber != None and
+                segmentNumber > self._finalSegmentNumber):
+                break
+
+            segment = self._namespace[Name.Component.fromSegment(segmentNumber)]
+            if (segment.data != None or
+                (hasattr(segment, '_debugSegmentStreamDidExpressInterest') and
+                  segment._debugSegmentStreamDidExpressInterest)):
+                # Already got the data packet or already requested.
+                continue
+
+            nRequestedSegments += 1
+            segment._debugSegmentStreamDidExpressInterest = True
+            segment.expressInterest()
 
     def _fireOnSegment(self, segment):
         # Copy the keys before iterating since callbacks can change the list.
@@ -192,109 +203,6 @@ class SegmentStream(object):
                     self._onSegmentCallbacks[id](self, segment, id)
                 except:
                     logging.exception("Error in onSegment")
-
-    class _SegmentStore(object):
-        def __init__(self):
-            # The key is the segment number. The value is None if the segment number
-            # is requested or the data if received.
-            self._store = {}
-            # The keys of _store in sorted order, kept in sync with _store.
-            self._sortedStoreKeys = []
-            self._maxRetrievedSegmentNumber = -1
-
-        def storeData(self, segmentNumber, data):
-            """
-            Store the Data packet with the given segment number.
-            requestSegmentNumbers will not return this requested segment number and
-            maybeRetrieveNextEntry will return the Data packet when it is next.
-
-            :param int segmentNumber: The segment number of the Data packet.
-            :param Data data: The Data packet.
-            """
-            # We don't expect to try to store a segment that has already been
-            # retrieved, but check anyway.
-            if segmentNumber > self._maxRetrievedSegmentNumber:
-                self._store[segmentNumber] = data
-                # Keep _sortedStoreKeys synced with _store.
-                if not segmentNumber in self._sortedStoreKeys:
-                    bisect.insort(self._sortedStoreKeys, segmentNumber)
-
-        def maybeRetrieveNextEntry(self):
-            """
-            If the min segment number is _maxRetrievedSegmentNumber + 1 and its
-            value is not None, then delete from the store, return the segment number
-            and Data packet, and update _maxRetrievedSegmentNumber. Otherwise return
-            None.
-
-            :return: (segmentNumber, data) if there is a next entry, otherwise None.
-            :rtype: (int, Data)
-            """
-            if len(self._sortedStoreKeys) == 0:
-                return None
-
-            minSegmentNumber = self._sortedStoreKeys[0]
-            if (self._store[minSegmentNumber] != None and
-                 minSegmentNumber == self._maxRetrievedSegmentNumber + 1):
-                data = self._store[minSegmentNumber]
-                del self._store[minSegmentNumber]
-                # Keep _sortedStoreKeys synced with _store.
-                del self._sortedStoreKeys[0]
-
-                self._maxRetrievedSegmentNumber += 1
-                return (minSegmentNumber, data)
-            else:
-                return None
-
-        def requestSegmentNumbers(self, totalRequestedSegments):
-            """
-            Return an array of the next segment numbers that need to be requested so
-            that the total requested segments is totalRequestedSegments.  If a
-            segment store value is None, it is already requested and is not
-            returned.  If a segment number is returned, create an entry in the
-            segment store with a value of None.
-
-            :return: An array of segments number that should be requested. Note that
-              these are not necessarily in order.
-            :rtype: Array<int>
-            """
-            # First, count how many are already requested.
-            nRequestedSegments = 0
-            for segmentNumber in self._store:
-                if self._store[segmentNumber] == None:
-                    nRequestedSegments += 1
-                    if nRequestedSegments >= totalRequestedSegments:
-                        # Already maxed out on requests.
-                        return []
-
-            toRequest = []
-            nextSegmentNumber = self._maxRetrievedSegmentNumber + 1
-            for storeSegmentNumber in self._sortedStoreKeys:
-                # Fill in the gap before the segment number in the store.
-                while nextSegmentNumber < storeSegmentNumber:
-                    toRequest.append(nextSegmentNumber)
-                    nextSegmentNumber += 1
-                    nRequestedSegments += 1
-                    if nRequestedSegments >= totalRequestedSegments:
-                        break
-                if nRequestedSegments >= totalRequestedSegments:
-                    break
-
-                nextSegmentNumber = storeSegmentNumber + 1
-
-            # We already filled in the gaps for the segments in the store. Continue
-            # after the last.
-            while nRequestedSegments < totalRequestedSegments:
-                toRequest.append(nextSegmentNumber)
-                nextSegmentNumber += 1
-                nRequestedSegments += 1
-
-            # Mark the new segment numbers as requested.
-            for segmentNumber in toRequest:
-                self._store[segmentNumber] = None
-                # Keep _sortedStoreKeys synced with _store.
-                bisect.insort(self._sortedStoreKeys, segmentNumber)
-
-            return toRequest
 
     namespace = property(getNamespace)
     interestPipelineSize = property(getInterestPipelineSize, setInterestPipelineSize)
