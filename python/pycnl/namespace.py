@@ -131,32 +131,25 @@ class Namespace(object):
         """
         Find or create the Namespace object whose name equals the Data packet
         name and attach the Data packet to that "dataNamespace". If a Data
-        packet is already attached to the dataNamespace, do nothing. If the name
-        of this Namespace is a prefix of the Data packet name, then this finds
-        or creates child Namespace nodes as needed. If not a prefix, then this
-        will search parent nodes as needed. So in theory it doesn't matter which
-        Namespace node you call setData but it is more efficient to call setData
-        on the closest node.
+        packet is already attached to the dataNamespace, do nothing. This finds
+        or creates child Namespace nodes as needed.
 
         :param Data data: The Data packet object whose name is the name in this
           Namespace. For efficiency, this does not copy the Data packet object.
           If your application may change the object later, then you must call
           setData with a copy of the object.
-        :raises RuntimeError: If the name of the root Namespace node is not a 
-          prefix of the Data packet name (so that it is not possible to create
-          any children to match the Data name).
+        :raises RuntimeError: If the name of this Namespace node is not a prefix
+          of the Data packet name.
         """
         # Find the starting Namespace to which we may have to add children.
-        dataNamespace = self
-        while not dataNamespace._name.isPrefixOf(data.name):
-            dataNamespace = dataNamespace._parent
-            if dataNamespace == None:
-                raise RuntimeError(
-                  "The root Namespace name must be a prefix of the Data packet name")
+        if not self._name.isPrefixOf(data.name):
+            raise RuntimeError(
+              "The name of this node is not a prefix of the Data packet name")
 
         # Find or create the child node whose name equals the data name. We know
-        # startingNamespace is a prefix, so we can just go by component count
+        # dataNamespace is a prefix, so we can just go by component count
         # instead of a full compare.
+        dataNamespace = self
         while dataNamespace._name.size() < data.name.size():
             nextComponent = data.name[dataNamespace._name.size()]
             dataNamespace = dataNamespace[nextComponent]
