@@ -99,23 +99,43 @@ class Namespace(object):
 
         return component in self._children
 
-    def getChild(self, component):
+    def getChild(self, nameOrComponent):
         """
-        Get the child with the given name component, creating it if needed. This
-        is equivalent to namespace[component].
+        Get a child (or descendant), creating it if needed. This is equivalent
+        to namespace[component].
 
-        :param component: The name component of the child.
-        :type component: Name.Component or value for the Name.Component constructor
+        :param nameOrComponent: If this is a Name, find or create the descendant
+          node with the name (which must have this node's name as a prefix).
+          Otherwise, this is the name component of the immediate child.
+        :type nameOrComponent: Name or Name.Component or value for the
+          Name.Component constructor
         :return: The child Namespace object.
         :rtype: Namespace
         """
-        if not isinstance(component, Name.Component):
-            component = Name.Component(component)
+        if isinstance(nameOrComponent, Name):
+            descendantName = nameOrComponent
+            if not self._name.isPrefixOf(descendantName):
+                raise RuntimeError(
+                  "The name of this node is not a prefix of the descendant name")
 
-        if component in self._children:
-            return self._children[component]
+            # Find or create the child node whose name equals the descendantName.
+            # We know descendantNamespace is a prefix, so we can just go by
+            # component count instead of a full compare.
+            descendantNamespace = self
+            while descendantNamespace._name.size() < descendantName.size():
+                nextComponent = descendantName[descendantNamespace._name.size()]
+                descendantNamespace = descendantNamespace[nextComponent]
+
+            return descendantNamespace
         else:
-            return self._createChild(component)
+            component = nameOrComponent
+            if not isinstance(component, Name.Component):
+                component = Name.Component(component)
+
+            if component in self._children:
+                return self._children[component]
+            else:
+                return self._createChild(component)
 
     def getChildComponents(self):
         """
@@ -141,19 +161,7 @@ class Namespace(object):
         :raises RuntimeError: If the name of this Namespace node is not a prefix
           of the Data packet name.
         """
-        # Find the starting Namespace to which we may have to add children.
-        if not self._name.isPrefixOf(data.name):
-            raise RuntimeError(
-              "The name of this node is not a prefix of the Data packet name")
-
-        # Find or create the child node whose name equals the data name. We know
-        # dataNamespace is a prefix, so we can just go by component count
-        # instead of a full compare.
-        dataNamespace = self
-        while dataNamespace._name.size() < data.name.size():
-            nextComponent = data.name[dataNamespace._name.size()]
-            dataNamespace = dataNamespace[nextComponent]
-
+        dataNamespace = self[data.name]
         if dataNamespace._data != None:
             # We already have an attached object.
             return
