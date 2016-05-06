@@ -89,9 +89,9 @@ class SegmentedContent(object):
             # We already finished and called onContent. (We don't expect this.)
             return
           
-        if segment != None:
-            self._segments.append(segment.content)
-            self._totalSize += segment.content.size()
+        if not segment.isNull():
+            self._segments.append(segment)
+            self._totalSize += segment.size()
         else:
             # Finished. We don't need the callback anymore.
             stream.removeCallback(id)

@@ -23,8 +23,8 @@ to fetch and return child segment packets in order.
 """
 
 import logging
-import bisect
 from pyndn import Name, Interest
+from pyndn.util import Blob
 from pycnl.namespace import Namespace
 
 class SegmentStream(object):
@@ -44,7 +44,7 @@ class SegmentStream(object):
         # The dictionary key is the callback ID. The value is the onSegment function.
         self._onSegmentCallbacks = {}
 
-        self._namespace.addOnDataSet(self._onDataSet)
+        self._namespace.addOnContentSet(self._onContentSet)
 
     def addOnSegment(self, onSegment):
         """
@@ -52,10 +52,10 @@ class SegmentStream(object):
         onSegment as described below. Segments are supplied in order.
 
         :param onSegment: This calls onSegment(stream, segment, callbackId)
-          where stream is this SegmentStream, segment is the segment Data packet,
+          where stream is this SegmentStream, segment is the segment content Blob,
           and callbackId is the callback ID returned by this method. You must
-          check if the segment value is None because after supplying the final
-          segment, this calls onSegment(namespace, None, callbackId) to signal
+          check if segment.isNull() because after supplying the final
+          segment, this calls onSegment(namespace, Blob(), callbackId) to signal
           the "end of stream".
           NOTE: The library will log any exceptions raised by this callback, but
           for better error handling the callback should catch and properly
@@ -119,19 +119,19 @@ class SegmentStream(object):
         """
         self._namespace.expressInterest()
         
-    def _onDataSet(self, namespace, dataNamespace, callbackId):
-        data = dataNamespace.data
-        if not (len(data.name) == len(self._namespace.getName()) + 1 and
-                data.name[-1].isSegment()):
+    def _onContentSet(self, namespace, contentNamespace, callbackId):
+        if not (len(contentNamespace.name) == len(self._namespace.getName()) + 1 and
+                contentNamespace.name[-1].isSegment()):
             # Not a segment, ignore.
             # Debug: If this is the first call, we still need to request segments.
             return
 
-        # TODO: Validate the Data packet.
+        # TODO: Use the Namspace mechanism to validate the Data packet.
 
-        if (data.getMetaInfo().getFinalBlockId().getValue().size() > 0 and
-             data.getMetaInfo().getFinalBlockId().isSegment()):
-            self._finalSegmentNumber = data.getMetaInfo().getFinalBlockId().toSegment()
+        metaInfo = contentNamespace.data.metaInfo
+        if (metaInfo.getFinalBlockId().getValue().size() > 0 and
+             metaInfo.getFinalBlockId().isSegment()):
+            self._finalSegmentNumber = metaInfo.getFinalBlockId().toSegment()
 
         # Retrieve as many segments as possible from the store.
         while True:
@@ -141,12 +141,17 @@ class SegmentStream(object):
                 break
 
             self._maxRetrievedSegmentNumber = nextSegmentNumber
-            self._fireOnSegment(nextSegment.data)
+            content = nextSegment.content
+            if content.isNull():
+                # We don't expect this to happen, but send a Blob with a
+                # zero-length value instead of a null Blob.
+                content = Blob(bytearray(), False)
+            self._fireOnSegment(content)
 
             if (self._finalSegmentNumber != None and
                 nextSegmentNumber == self._finalSegmentNumber):
                 # Finished.
-                self._fireOnSegment(None)
+                self._fireOnSegment(Blob())
                 return
 
         if self._finalSegmentNumber == None and not self._didRequestFinalSegment:
