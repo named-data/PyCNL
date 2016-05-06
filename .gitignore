@@ -20,3 +20,6 @@ doc/_build
 /dist
 /python/PyNDN.egg-info
 /build
+
+# Temporary test files
+examples/test.db
