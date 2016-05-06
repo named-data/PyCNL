@@ -46,11 +46,12 @@ class Namespace(object):
         # (We don't use OrderedDict because it doesn't sort keys on insert.)
         self._sortedChildrenKeys = []
         self._data = None
+        self._content = None
         self._face = None
         # The dictionary key is the callback ID. The value is the onNameAdded function.
         self._onNameAddedCallbacks = {}
-        # The dictionary key is the callback ID. The value is the onDataSet function.
-        self._onDataSetCallbacks = {}
+        # The dictionary key is the callback ID. The value is the onContentSet function.
+        self._onContentSetCallbacks = {}
 
     def getName(self):
         """
@@ -102,7 +103,8 @@ class Namespace(object):
     def getChild(self, nameOrComponent):
         """
         Get a child (or descendant), creating it if needed. This is equivalent
-        to namespace[component].
+        to namespace[component]. If a child is created, this calls callbacks as
+        described by addOnNameAdded,
 
         :param nameOrComponent: If this is a Name, find or create the descendant
           node with the name (which must have this node's name as a prefix).
@@ -152,8 +154,9 @@ class Namespace(object):
 
     def setData(self, data):
         """
-        Attach the Data packet to this Namespace. If a Data packet is already
-        attached, do nothing.
+        Attach the Data packet to this Namespace. This calls callbacks as
+        described by addOnContentSet. If a Data packet is already attached, do
+        nothing.
 
         :param Data data: The Data packet object whose name must equal the name
           in this Namespace node. To get the right Namespace, you can use
@@ -163,29 +166,48 @@ class Namespace(object):
         :raises RuntimeError: If the Data packet name does not equal the name of
           this Namespace node.
         """
+        if self._data != None:
+            # We already have an attached object.
+            return
         if not data.name.equals(self._name):
             raise RuntimeError(
               "The Data packet name does not equal the name of this Namespace node.")
 
-        if self._data != None:
-            # We already have an attached object.
-            return
         self._data = data
+        # TODO: SUpport a handler to get the content from the Data.
+        self._content = data.content
 
         # Fire callbacks.
         namespace = self
         while namespace:
-            namespace._fireOnDataSet(self)
+            namespace._fireOnContentSet(self)
             namespace = namespace._parent
 
     def getData(self):
         """
-        Get the Data packet attached to this Namespace object.
+        Get the Data packet attached to this Namespace object. Note that
+        getContent() may be different than the content in the attached Data
+        packet (for example if the content is decrypted). To get the content,
+        you should use getContent() instead of getData().getContent(). Also,
+        the Data packet name is the same as the name of this Namespace node,
+        so you can simply use getName() instead of getData().getName(). You
+        should only use getData() to get other information such as the MetaInfo.
 
         :return: The Data packet object, or None if not set.
         :rtype: Data
         """
         return self._data
+
+    def getContent(self):
+        """
+        Get the content attached to this Namespace object. Note that
+        getContent() may be different than the content in the attached Data
+        packet (for example if the content is decrypted).
+
+        :return: The content Blob, or None if not set.
+        :rtype: Blob
+        """
+        return self._content
 
     def addOnNameAdded(self, onNameAdded):
         """
@@ -208,26 +230,28 @@ class Namespace(object):
         self._onNameAddedCallbacks[callbackId] = onNameAdded
         return callbackId
 
-    def addOnDataSet(self, onDataSet):
+    def addOnContentSet(self, onContentSet):
         """
-        Add an onDataSet callback. When a Data packet is attached to this
-        Namespace node or any children, this calls onDataSet as described below.
+        Add an onContentSet callback. When a Data packet is attached to this
+        Namespace node or any children and the content has been set, this calls
+        onContentSet as described below.
 
-        :param onDataSet: This calls
-          onDataSet(namespace, dataNamespace, callbackId)
-          where namespace is this Namespace, addedToNamespace is the Namespace
-          to which the Data packet was attached, and callbackId is the callback
-          ID returned by this method. To get the data packet, use
-          dataNamespace.getData().
+        :param onContentSet: This calls
+          onContentSet(namespace, contentNamespace, callbackId)
+          where namespace is this Namespace, contentNamespace is the Namespace
+          to which the Data packet was attached and the content was set, and
+          callbackId is the callback ID returned by this method. To get the
+          content or data packet, use contentNamespace.getContent() or
+          contentNamespace.getData().
           NOTE: The library will log any exceptions raised by this callback, but
           for better error handling the callback should catch and properly
           handle any exceptions.
-        :type onDataSet: function object
+        :type onContentSet: function object
         :return: The callback ID which you can use in removeCallback().
         :rtype: int
         """
         callbackId = Namespace.getNextCallbackId()
-        self._onDataSetCallbacks[callbackId] = onDataSet
+        self._onContentSetCallbacks[callbackId] = onContentSet
         return callbackId
 
     def setFace(self, face):
@@ -247,7 +271,7 @@ class Namespace(object):
         Call expressInterest on this (or a parent's) Face where the interest
         name is the name of this Namespace node. When the Data packet is
         received this calls setData, so you should use a callback with
-        addOnDataSet. This uses ExponentialReExpress to re-express a timed-out
+        addOnContentSet. This uses ExponentialReExpress to re-express a timed-out
         interest with longer lifetimes.
         TODO: How to alert the application on a final interest timeout?
         TODO: Replace this by a mechanism for requesting a Data object which is
@@ -290,7 +314,7 @@ class Namespace(object):
           addOnNameAdded.
         """
         self._onNameAddedCallbacks.pop(callbackId, None)
-        self._onDataSetCallbacks.pop(callbackId, None)
+        self._onContentSetCallbacks.pop(callbackId, None)
 
     def __getitem__(self, key):
         """
@@ -336,15 +360,15 @@ class Namespace(object):
                 except:
                     logging.exception("Error in onNameAdded")
 
-    def _fireOnDataSet(self, dataNamespace):
+    def _fireOnContentSet(self, contentNamespace):
         # Copy the keys before iterating since callbacks can change the list.
-        for id in list(self._onDataSetCallbacks.keys()):
+        for id in list(self._onContentSetCallbacks.keys()):
             # A callback on a previous pass may have removed this callback, so check.
-            if id in self._onDataSetCallbacks:
+            if id in self._onContentSetCallbacks:
                 try:
-                    self._onDataSetCallbacks[id](self, dataNamespace, id)
+                    self._onContentSetCallbacks[id](self, contentNamespace, id)
                 except:
-                    logging.exception("Error in onDataSet")
+                    logging.exception("Error in onContentSet")
 
     @staticmethod
     def getNextCallbackId():
@@ -363,6 +387,7 @@ class Namespace(object):
     name = property(getName)
     parent = property(getParent)
     data = property(getData)
+    content = property(getContent)
 
     _lastCallbackId = 0
     _lastCallbackIdLock = threading.Lock()
