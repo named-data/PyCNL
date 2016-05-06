@@ -173,15 +173,8 @@ class Namespace(object):
             raise RuntimeError(
               "The Data packet name does not equal the name of this Namespace node.")
 
-        self._data = data
-        # TODO: SUpport a handler to get the content from the Data.
-        self._content = data.content
-
-        # Fire callbacks.
-        namespace = self
-        while namespace:
-            namespace._fireOnContentSet(self)
-            namespace = namespace._parent
+        # TODO: Support a handler to get the content from the Data.
+        self._setDataAndContent(data, data.content)
 
     def getData(self):
         """
@@ -359,6 +352,25 @@ class Namespace(object):
                     self._onNameAddedCallbacks[id](self, addedNamespace, id)
                 except:
                     logging.exception("Error in onNameAdded")
+
+    def _setDataAndContent(self, data, content):
+        """
+        Set _data and _content to the given values and fire the OnContentSet
+        callbacks. This may be called from a GetContent handler invoked by
+        setData.
+
+        :param Data data: The Data packet object given to setData.
+        :param Blob content: The content which may have been processed from the
+          Data packet, e.g. by decrypting.
+        """
+        self._data = data
+        self._content = content
+
+        # Fire callbacks.
+        namespace = self
+        while namespace:
+            namespace._fireOnContentSet(self)
+            namespace = namespace._parent
 
     def _fireOnContentSet(self, contentNamespace):
         # Copy the keys before iterating since callbacks can change the list.
