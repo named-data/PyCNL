@@ -109,8 +109,11 @@ class Namespace(object):
           Otherwise, this is the name component of the immediate child.
         :type nameOrComponent: Name or Name.Component or value for the
           Name.Component constructor
-        :return: The child Namespace object.
+        :return: The child Namespace object. If nameOrComponent is a Name which
+          equals the name of this Namespace, then just return this Namespace.
         :rtype: Namespace
+        :raises RuntimeError: If the name of this Namespace node is not a prefix
+          of the given Name.
         """
         if isinstance(nameOrComponent, Name):
             descendantName = nameOrComponent
@@ -149,28 +152,30 @@ class Namespace(object):
 
     def setData(self, data):
         """
-        Find or create the Namespace object whose name equals the Data packet
-        name and attach the Data packet to that "dataNamespace". If a Data
-        packet is already attached to the dataNamespace, do nothing. This finds
-        or creates child Namespace nodes as needed.
+        Attach the Data packet to this Namespace. If a Data packet is already
+        attached, do nothing.
 
-        :param Data data: The Data packet object whose name is the name in this
-          Namespace. For efficiency, this does not copy the Data packet object.
-          If your application may change the object later, then you must call
-          setData with a copy of the object.
-        :raises RuntimeError: If the name of this Namespace node is not a prefix
-          of the Data packet name.
+        :param Data data: The Data packet object whose name must equal the name
+          in this Namespace node. To get the right Namespace, you can use
+          getChild(data.getName()). For efficiency, this does not copy the Data
+          packet object. If your application may change the object later, then
+          you must call setData with a copy of the object.
+        :raises RuntimeError: If the Data packet name does not equal the name of
+          this Namespace node.
         """
-        dataNamespace = self[data.name]
-        if dataNamespace._data != None:
+        if not data.name.equals(self._name):
+            raise RuntimeError(
+              "The Data packet name does not equal the name of this Namespace node.")
+
+        if self._data != None:
             # We already have an attached object.
             return
-        dataNamespace._data = data
+        self._data = data
 
         # Fire callbacks.
-        namespace = dataNamespace
+        namespace = self
         while namespace:
-            namespace._fireOnDataSet(dataNamespace)
+            namespace._fireOnDataSet(self)
             namespace = namespace._parent
 
     def getData(self):
@@ -242,8 +247,8 @@ class Namespace(object):
         Call expressInterest on this (or a parent's) Face where the interest
         name is the name of this Namespace node. When the Data packet is
         received this calls setData, so you should use a callback with
-        addOnDataSet (or check getData() later). This uses ExponentialReExpress
-        to re-express a timed-out interest with longer lifetimes.
+        addOnDataSet. This uses ExponentialReExpress to re-express a timed-out
+        interest with longer lifetimes.
         TODO: How to alert the application on a final interest timeout?
         TODO: Replace this by a mechanism for requesting a Data object which is
         more general than a Face network operation.
@@ -258,7 +263,7 @@ class Namespace(object):
             raise ValueError("A Face object has not been set for this or a parent.")
 
         def onData(interest, data):
-            self.setData(data)
+            self[data.name].setData(data)
 
         if interestTemplate == None:
             interestTemplate = Interest()
