@@ -186,8 +186,7 @@ def main():
     namespace.setFace(face)
     handler = NacConsumerHandler(
       namespace, keyChain, groupName, userName, Sqlite3ConsumerDb(databaseFilePath))
-    # TODO: Where is the right place to add decryption keys?
-    handler._consumer.addDecryptionKey(userKeyName, fixtureUserDKeyBlob)
+    handler.addDecryptionKey(userKeyName, fixtureUserDKeyBlob)
 
     enabled = [True]
     def onConsumeComplete(data, result):

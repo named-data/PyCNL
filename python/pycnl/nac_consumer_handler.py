@@ -37,3 +37,16 @@ class NacConsumerHandler(object):
         self._consumer = Consumer(
           face, keyChain, groupName, consumerName, database)
 
+    def addDecryptionKey(self, keyName, keyBlob):
+        """
+        Add a new decryption key with keyName and keyBlob to the database given
+        to the constructor.
+
+        :param Name keyName: The key name.
+        :param Blob keyBlob: The encoded key.
+        :raises ConsumerDb.Error: If a key with the same keyName already exists
+          in the database, or other database error.
+        :raises RuntimeError: if the consumer name is not a prefix of the key name.
+        """
+        self._consumer.addDecryptionKey(keyName, keyBlob)
+
