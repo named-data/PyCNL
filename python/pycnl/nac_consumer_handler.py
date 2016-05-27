@@ -23,6 +23,7 @@ Control Consumer to automatically decrypt Data packets which are attached to a
 Namespace node.
 """
 
+import logging
 from pyndn.encrypt import Consumer
 
 class NacConsumerHandler(object):
@@ -37,6 +38,9 @@ class NacConsumerHandler(object):
         self._consumer = Consumer(
           face, keyChain, groupName, consumerName, database)
 
+        # TODO: Use a way to set the callback whcih is better than setting the member.
+        namespace._transformContent = self._transformContent
+
     def addDecryptionKey(self, keyName, keyBlob):
         """
         Add a new decryption key with keyName and keyBlob to the database given
@@ -50,3 +54,27 @@ class NacConsumerHandler(object):
         """
         self._consumer.addDecryptionKey(keyName, keyBlob)
 
+    def _transformContent(self, data, onContentTransformed):
+        """
+        This is the TransformContent callback to use the Consumer to decrypt
+        data and call onContentTransformed as described below.
+
+        :param Data data: The Data packet with the content to decrypt.
+        :param onContentTransformed: This calls
+          onContentTransformed(data, plainText) where data is the given Data,
+          and plainText is the decrypted content Blob.
+        :type onContentTransformed: function object
+        """
+        # TODO: Use Namespace mechanisms to verify the Data packet.
+
+        def onPlainText(plainText):
+            try:
+                onContentTransformed(data, plainText)
+            except:
+                logging.exception("Error in onConsumeComplete")
+        # TODO: TransformContent should take an OnError to use here.
+        def onError(code, message):
+            logging.getLogger(__name__).error(
+              "consume error " + repr(code) + ": " + message)
+        # TODO: Update the Consumer class so we don't call a private method.
+        self._consumer._decryptContent(data, onPlainText, onError)
