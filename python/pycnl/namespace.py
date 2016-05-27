@@ -52,6 +52,7 @@ class Namespace(object):
         self._onNameAddedCallbacks = {}
         # The dictionary key is the callback ID. The value is the onContentSet function.
         self._onContentSetCallbacks = {}
+        self._transformContent = None
 
     def getName(self):
         """
@@ -173,8 +174,13 @@ class Namespace(object):
             raise RuntimeError(
               "The Data packet name does not equal the name of this Namespace node.")
 
-        # TODO: Support a handler to get the content from the Data.
-        self._setDataAndContent(data, data.content)
+        transformContent = self._getTransformContent()
+        # TODO: TransformContent should take an OnError.
+        if transformContent != None:
+            transformContent(data, self._onContentTransformed)
+        else:
+            # Otherwise just invoke directly.
+            self._onContentTransformed(data, data.content)
 
     def getData(self):
         """
@@ -290,10 +296,32 @@ class Namespace(object):
           ExponentialReExpress.makeOnTimeout(face, onData, None))
 
     def _getFace(self):
+        """
+        Get the Face set by setFace on this or a parent Namespace node.
+
+        :return: The Face, or None if not set on this or any parent.
+        :rtype: Face
+        """
         namespace = self
         while namespace != None:
             if namespace._face != None:
                 return namespace._face
+            namespace = namespace._parent
+
+        return None
+
+    def _getTransformContent(self):
+        """
+        Get the TransformContent callback on this or a parent Namespace node.
+
+        :return: The TransformContent callback, or None if not set on this or
+          any parent.
+        :rtype: function object
+        """
+        namespace = self
+        while namespace != None:
+            if namespace._transformContent != None:
+                return namespace._transformContent
             namespace = namespace._parent
 
         return None
@@ -353,11 +381,11 @@ class Namespace(object):
                 except:
                     logging.exception("Error in onNameAdded")
 
-    def _setDataAndContent(self, data, content):
+    def _onContentTransformed(self, data, content):
         """
         Set _data and _content to the given values and fire the OnContentSet
-        callbacks. This may be called from a GetContent handler invoked by
-        setData.
+        callbacks. This may be called from a _transformContent handler invoked
+        by setData.
 
         :param Data data: The Data packet object given to setData.
         :param Blob content: The content which may have been processed from the
