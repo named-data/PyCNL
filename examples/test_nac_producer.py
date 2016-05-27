@@ -32,12 +32,18 @@ from pyndn.security.identity import IdentityManager
 from pyndn.security.identity import MemoryIdentityStorage, MemoryPrivateKeyStorage
 from pyndn.security.policy import NoVerifyPolicyManager
 
-DATA_CONTENT = bytearray([
-    # "This test message was decrypted."
+DATA0_CONTENT = bytearray([
+    # "This test message was decrypted"
     0x54, 0x68, 0x69, 0x73, 0x20, 0x74, 0x65, 0x73,
     0x74, 0x20, 0x6d, 0x65, 0x73, 0x73, 0x61, 0x67,
     0x65, 0x20, 0x77, 0x61, 0x73, 0x20, 0x64, 0x65,
-    0x63, 0x72, 0x79, 0x70, 0x74, 0x65, 0x64, 0x2e
+    0x63, 0x72, 0x79, 0x70, 0x74, 0x65, 0x64
+])
+
+DATA1_CONTENT = bytearray([
+    # " from segments."
+    0x20, 0x66, 0x72, 0x6f, 0x6d, 0x20, 0x73, 0x65,
+    0x67, 0x6d, 0x65, 0x6e, 0x74, 0x73, 0x2e
 ])
 
 AES_KEY = bytearray([
@@ -212,11 +218,13 @@ class TestProducer(object):
     registerPrefix to answer interests with prepared packets. When finished,
     a callback will set _enabled to False.
     """
-    def __init__(self, contentName, userKeyName, keyChain, certificateName):
+    def __init__(self, contentPrefix, userKeyName, keyChain, certificateName):
         self._enabled = True
         self._responseCount = 0
 
         # Imitate test_consumer from the PyNDN integration tests.
+        contentName0 = Name(contentPrefix).append("Content").appendSegment(0)
+        contentName1 = Name(contentPrefix).append("Content").appendSegment(1)
         cKeyName = Name("/Prefix/SAMPLE/Content/C-KEY/1")
         dKeyName = Name("/Prefix/READ/D-KEY/1/2")
 
@@ -232,14 +240,24 @@ class TestProducer(object):
         # Load the C-KEY.
         fixtureCKeyBlob = Blob(AES_KEY, False)
 
-        # Imitate createEncryptedContent.
-        self._contentData = Data(contentName)
+        # Imitate createEncryptedContent. Make two segments.
         encryptParams = EncryptParams(EncryptAlgorithmType.AesCbc)
         encryptParams.setInitialVector(Blob(INITIAL_VECTOR, False))
+        self._contentData0 = Data(contentName0)
         Encryptor.encryptData(
-          self._contentData, Blob(DATA_CONTENT, False), cKeyName,
+          self._contentData0, Blob(DATA0_CONTENT, False), cKeyName,
           fixtureCKeyBlob,  encryptParams)
-        keyChain.sign(self._contentData, certificateName)
+        self._contentData0.getMetaInfo().setFinalBlockId(
+          Name().appendSegment(1)[0])
+        keyChain.sign(self._contentData0, certificateName)
+
+        self._contentData1 = Data(contentName1)
+        Encryptor.encryptData(
+          self._contentData1, Blob(DATA1_CONTENT, False), cKeyName,
+          fixtureCKeyBlob,  encryptParams)
+        self._contentData1.getMetaInfo().setFinalBlockId(
+          Name().appendSegment(1)[0])
+        keyChain.sign(self._contentData1, certificateName)
 
         # Imitate createEncryptedCKey.
         self._cKeyData = Data(cKeyName)
@@ -258,10 +276,12 @@ class TestProducer(object):
         keyChain.sign(self._dKeyData, certificateName)
 
     def onInterest(self, prefix, interest, face, interestFilterId, filter):
-        if interest.matchesName(self._contentData.getName()):
-            data = self._contentData
+        if interest.matchesName(self._contentData0.getName()):
+            data = self._contentData0
         elif interest.matchesName(self._cKeyData.getName()):
             data = self._cKeyData
+        elif interest.matchesName(self._contentData1.getName()):
+            data = self._contentData1
         elif interest.matchesName(self._dKeyData.getName()):
             data = self._dKeyData
         else:
@@ -271,7 +291,7 @@ class TestProducer(object):
         face.putData(data)
 
         self._responseCount += 1
-        if self._responseCount >= 3:
+        if self._responseCount >= 4:
             # We sent all the packets.
             self._enabled = False
 
@@ -288,10 +308,9 @@ def main():
 
     userKeyName = Name("/U/Key")
     contentPrefix = Name("/Prefix/SAMPLE")
-    contentName = Name(contentPrefix).append("Content")
 
     testProducer = TestProducer(
-      contentName, userKeyName, keyChain, certificateName)
+      contentPrefix, userKeyName, keyChain, certificateName)
 
     prefix = Name("/Prefix")
     dump("Register prefix", prefix.toUri())
