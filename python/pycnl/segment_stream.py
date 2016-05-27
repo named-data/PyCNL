@@ -137,7 +137,7 @@ class SegmentStream(object):
         while True:
             nextSegmentNumber = self._maxRetrievedSegmentNumber + 1
             nextSegment = self._namespace[Name.Component.fromSegment(nextSegmentNumber)]
-            if nextSegment.data == None:
+            if nextSegment.content == None:
                 break
 
             self._maxRetrievedSegmentNumber = nextSegmentNumber
@@ -172,7 +172,7 @@ class SegmentStream(object):
                 continue
 
             child = self._namespace[component]
-            if (child.data == None and
+            if (child.content == None and
                   hasattr(child, '_debugSegmentStreamDidExpressInterest') and
                   child._debugSegmentStreamDidExpressInterest):
                 nRequestedSegments += 1
@@ -189,7 +189,7 @@ class SegmentStream(object):
                 break
 
             segment = self._namespace[Name.Component.fromSegment(segmentNumber)]
-            if (segment.data != None or
+            if (segment.content != None or
                 (hasattr(segment, '_debugSegmentStreamDidExpressInterest') and
                   segment._debugSegmentStreamDidExpressInterest)):
                 # Already got the data packet or already requested.
