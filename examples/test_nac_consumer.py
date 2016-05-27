@@ -170,8 +170,6 @@ def main():
     userKeyName = Name("/U/Key")
     contentPrefix = Name("/Prefix/SAMPLE")
     contentName = Name(contentPrefix).append("Content")
-    # The user key.
-    fixtureUserDKeyBlob = Blob(FIXTURE_USER_D_KEY)
 
     keyChain = createVerifyKeyChain()
 
@@ -182,21 +180,22 @@ def main():
     except OSError:
         pass
 
-    namespace = Namespace(contentPrefix)
+    namespace = Namespace(contentName)
     namespace.setFace(face)
     handler = NacConsumerHandler(
       namespace, keyChain, groupName, userName, Sqlite3ConsumerDb(databaseFilePath))
+    fixtureUserDKeyBlob = Blob(FIXTURE_USER_D_KEY)
     handler.addDecryptionKey(userKeyName, fixtureUserDKeyBlob)
 
     enabled = [True]
-    def onConsumeComplete(data, result):
-        dump("Decrypted content:", result.toRawStr())
+    def onContentSet(namespace, contentNamespace, callbackId):
+        dump("Decrypted content:", contentNamespace.getContent().toRawStr())
         enabled[0] = False
-    def onError(code, message):
-        dump("consume error " + repr(code) + ": " + message)
-        enabled[0] = False
-        
-    handler._consumer.consume(contentName, onConsumeComplete, onError)
+    namespace.addOnContentSet(onContentSet)
+
+    # TODO: This works if we're lucky and the first data packet is for the
+    # contentData, not the cKeyData. See http://redmine.named-data.net/issues/3635 .
+    namespace[contentName].expressInterest()
 
     while enabled[0]:
         face.processEvents()
