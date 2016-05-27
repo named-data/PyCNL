@@ -118,10 +118,28 @@ class SegmentStream(object):
         necessarily added in order.
         """
         self._namespace.expressInterest()
-        
+
+    @staticmethod
+    def debugGetRightmostLeaf(namespace):
+        """
+        Get the rightmost leaf of the given namespace. Use this temporarily to
+        handle encrypted data packets where the name has the key name appended.
+
+        :param Namespace namespace: The Namespace with the leaf node.
+        :return: The leaf Namespace node.
+        :rtype: Namespace
+        """
+        result = namespace
+        while True:
+            childComponents = result.getChildComponents()
+            if len(childComponents) == 0:
+                return result
+
+            result = result[childComponents[-1]]
+
     def _onContentSet(self, namespace, contentNamespace, callbackId):
-        if not (len(contentNamespace.name) == len(self._namespace.getName()) + 1 and
-                contentNamespace.name[-1].isSegment()):
+        if not (len(contentNamespace.name) >= len(self._namespace.name) + 1 and
+                contentNamespace.name[len(self._namespace.name)].isSegment()):
             # Not a segment, ignore.
             # Debug: If this is the first call, we still need to request segments.
             return
@@ -136,7 +154,8 @@ class SegmentStream(object):
         # Retrieve as many segments as possible from the store.
         while True:
             nextSegmentNumber = self._maxRetrievedSegmentNumber + 1
-            nextSegment = self._namespace[Name.Component.fromSegment(nextSegmentNumber)]
+            nextSegment = self.debugGetRightmostLeaf(
+              self._namespace[Name.Component.fromSegment(nextSegmentNumber)])
             if nextSegment.content == None:
                 break
 
@@ -172,7 +191,9 @@ class SegmentStream(object):
                 continue
 
             child = self._namespace[component]
-            if (child.content == None and
+            # Debug: Check the leaf for content, but use the immediate child
+            # for _debugSegmentStreamDidExpressInterest.
+            if (self.debugGetRightmostLeaf(child).content == None and
                   hasattr(child, '_debugSegmentStreamDidExpressInterest') and
                   child._debugSegmentStreamDidExpressInterest):
                 nRequestedSegments += 1
@@ -189,7 +210,7 @@ class SegmentStream(object):
                 break
 
             segment = self._namespace[Name.Component.fromSegment(segmentNumber)]
-            if (segment.content != None or
+            if (self.debugGetRightmostLeaf(segment).content != None or
                 (hasattr(segment, '_debugSegmentStreamDidExpressInterest') and
                   segment._debugSegmentStreamDidExpressInterest)):
                 # Already got the data packet or already requested.
