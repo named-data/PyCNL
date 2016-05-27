@@ -32,6 +32,7 @@ from pyndn.security.identity import IdentityManager
 from pyndn.security.identity import MemoryIdentityStorage, MemoryPrivateKeyStorage
 from pyndn.security.policy import SelfVerifyPolicyManager
 from pycnl import Namespace, NacConsumerHandler
+from pycnl import SegmentStream, SegmentedContent
 
 DEFAULT_RSA_PUBLIC_KEY_DER = bytearray([
     0x30, 0x82, 0x01, 0x22, 0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01,
@@ -188,14 +189,13 @@ def main():
     handler.addDecryptionKey(userKeyName, fixtureUserDKeyBlob)
 
     enabled = [True]
-    def onContentSet(namespace, contentNamespace, callbackId):
-        dump("Decrypted content:", contentNamespace.getContent().toRawStr())
+    def onContent(handler, content, id):
+        dump("Got segmented content ", content.toRawStr())
         enabled[0] = False
-    namespace.addOnContentSet(onContentSet)
 
-    # TODO: This works if we're lucky and the first data packet is for the
-    # contentData, not the cKeyData. See http://redmine.named-data.net/issues/3635 .
-    namespace[contentName].expressInterest()
+    contentHandler = SegmentedContent(SegmentStream(namespace))
+    contentHandler.addOnContent(onContent)
+    contentHandler.getSegmentStream().start()
 
     while enabled[0]:
         face.processEvents()
