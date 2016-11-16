@@ -55,7 +55,7 @@ class SegmentStream(object):
           where stream is this SegmentStream, segment is the segment content Blob,
           and callbackId is the callback ID returned by this method. You must
           check if segment.isNull() because after supplying the final
-          segment, this calls onSegment(namespace, Blob(), callbackId) to signal
+          segment, this calls onSegment(stream, Blob(), callbackId) to signal
           the "end of stream".
           NOTE: The library will log any exceptions raised by this callback, but
           for better error handling the callback should catch and properly
