@@ -51,12 +51,13 @@ class SegmentStream(object):
         Add an onSegment callback. When a new segment is available, this calls
         onSegment as described below. Segments are supplied in order.
 
-        :param onSegment: This calls onSegment(stream, segment, callbackId)
-          where stream is this SegmentStream, segment is the segment content Blob,
-          and callbackId is the callback ID returned by this method. You must
-          check if segment.isNull() because after supplying the final
-          segment, this calls onSegment(stream, Blob(), callbackId) to signal
-          the "end of stream".
+        :param onSegment: This calls
+          onSegment(stream, segmentNamespace, callbackId)
+          where stream is this SegmentStream, segmentNamespace is the Namespace
+          where you can use segmentNamespace.content, and callbackId is the
+          callback ID returned by this method. You must check if
+          segmentNamespace None because after supplying the final segment, this
+          calls onSegment(stream, None, callbackId) to signal the "end of stream".
           NOTE: The library will log any exceptions raised by this callback, but
           for better error handling the callback should catch and properly
           handle any exceptions.
@@ -160,17 +161,12 @@ class SegmentStream(object):
                 break
 
             self._maxRetrievedSegmentNumber = nextSegmentNumber
-            content = nextSegment.content
-            if content.isNull():
-                # We don't expect this to happen, but send a Blob with a
-                # zero-length value instead of a null Blob.
-                content = Blob(bytearray(), False)
-            self._fireOnSegment(content)
+            self._fireOnSegment(nextSegment)
 
             if (self._finalSegmentNumber != None and
                 nextSegmentNumber == self._finalSegmentNumber):
                 # Finished.
-                self._fireOnSegment(Blob())
+                self._fireOnSegment(None)
                 return
 
         if self._finalSegmentNumber == None and not self._didRequestFinalSegment:
@@ -220,13 +216,13 @@ class SegmentStream(object):
             segment._debugSegmentStreamDidExpressInterest = True
             segment.expressInterest()
 
-    def _fireOnSegment(self, segment):
+    def _fireOnSegment(self, segmentNamespace):
         # Copy the keys before iterating since callbacks can change the list.
         for id in list(self._onSegmentCallbacks.keys()):
             # A callback on a previous pass may have removed this callback, so check.
             if id in self._onSegmentCallbacks.keys():
                 try:
-                    self._onSegmentCallbacks[id](self, segment, id)
+                    self._onSegmentCallbacks[id](self, segmentNamespace, id)
                 except:
                     logging.exception("Error in onSegment")
 
