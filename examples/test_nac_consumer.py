@@ -189,13 +189,15 @@ def main():
     handler.addDecryptionKey(userKeyName, fixtureUserDKeyBlob)
 
     enabled = [True]
-    def onContent(handler, content, id):
-        dump("Got segmented content ", content.toRawStr())
-        enabled[0] = False
+    def onContentSet(namespace, contentNamespace, callbackId):
+        if contentNamespace == namespace:
+            dump("Got segmented content", contentNamespace.content.toRawStr())
+            enabled[0] = False
+    namespace.addOnContentSet(onContentSet)
 
-    contentHandler = SegmentedContent(SegmentStream(namespace))
-    contentHandler.addOnContent(onContent)
-    contentHandler.getSegmentStream().start()
+    segmentStream = SegmentStream(namespace)
+    SegmentedContent(segmentStream)
+    segmentStream.start()
 
     while enabled[0]:
         face.processEvents()

@@ -22,58 +22,24 @@ This module defines the SegmentedContent class which assembles the contents of
 child segment packets into a single block of memory.
 """
 
-import logging
 from pyndn.util import Blob
-from pycnl.namespace import Namespace
 
 class SegmentedContent(object):
     def __init__(self, segmentStream):
         """
         Create a SegmentedContent object to use the given segmentStream to
-        assemble content. You can add callbacks and set options, then you
-        should call segmentStream.start().
+        assemble content. You should use segmentStream.namespace.addOnContentSet
+        to add the callback which is called when the content is complete. Then
+        you should call segmentStream.start().
 
         :param Namespace namespace: The Namespace node whose children are the
           names of segment Data packets.
-        :param Face face: This calls face.expressInterest to fetch segments.
         """
         self._segmentStream = segmentStream
-        # The dictionary key is the callback ID. The value is the onContent function.
-        self._onContentCallbacks = {}
         self._segments = []
         self._totalSize = 0
 
         self._segmentStream.addOnSegment(self._onSegment)
-
-    def addOnContent(self, onContent):
-        """
-        Add an onContent callback. When all the segments are available, this
-        calls onContent as described below.
-
-        :param onContent: This calls onContent(handler, content, callbackId)
-          where handler is this SegmentedContent, content is a Blob with the
-          assembled segments as one memory block, and callbackId is the callback
-          ID returned by this method.
-          NOTE: The library will log any exceptions raised by this callback, but
-          for better error handling the callback should catch and properly
-          handle any exceptions.
-        :type onComplete: function object
-        :return: The callback ID which you can use in removeCallback().
-        :rtype: int
-        """
-        callbackId = Namespace.getNextCallbackId()
-        self._onContentCallbacks[callbackId] = onContent
-        return callbackId
-
-    def removeCallback(self, callbackId):
-        """
-        Remove the callback with the given callbackId. If the callbackId isn't
-        found, do nothing.
-
-        :param int callbackId: The callback ID returned, for example, from
-          addOnContent.
-        """
-        self._onContentCallbacks.pop(callbackId, None)
 
     def getSegmentStream(self):
         """
@@ -106,15 +72,11 @@ class SegmentedContent(object):
                 # Free the memory.
                 self._segments[i] = None
                 
+            # Free memory.
             self._segments = None
-            self._fireOnContent(Blob(content, False))
 
-    def _fireOnContent(self, content):
-        # Copy the keys before iterating since callbacks can change the list.
-        for id in list(self._onContentCallbacks.keys()):
-            # A callback on a previous pass may have removed this callback, so check.
-            if id in self._onContentCallbacks.keys():
-                try:
-                    self._onContentCallbacks[id](self, content, id)
-                except:
-                    logging.exception("Error in onContent")
+            # Debug: Fix this hack. How can we attach content to a namespace
+            # node which has no associated Data packet? Who is authorized to do
+            # so?
+            self._segmentStream.namespace._onContentTransformed(
+              None, Blob(content, False))

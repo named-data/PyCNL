@@ -37,13 +37,15 @@ def main():
     page.setFace(face)
 
     enabled = [True]
-    def onContent(handler, content, id):
-        dump("Got segmented content size", content.size())
-        enabled[0] = False
+    def onContentSet(namespace, contentNamespace, callbackId):
+        if contentNamespace == namespace:
+            dump("Got segmented content size", contentNamespace.content.size())
+            enabled[0] = False
+    page.addOnContentSet(onContentSet)
 
-    contentHandler = SegmentedContent(SegmentStream(page))
-    contentHandler.addOnContent(onContent)
-    contentHandler.getSegmentStream().start()
+    segmentStream = SegmentStream(page)
+    SegmentedContent(segmentStream)
+    segmentStream.start()
 
     # Loop calling processEvents until a callback sets enabled[0] = False.
     while enabled[0]:
