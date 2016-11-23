@@ -231,17 +231,18 @@ class Namespace(object):
 
     def addOnContentSet(self, onContentSet):
         """
-        Add an onContentSet callback. When a Data packet is attached to this
-        Namespace node or any children and the content has been set, this calls
-        onContentSet as described below.
+        Add an onContentSet callback. When the content has been set for this
+        Namespace node or any children and , this calls onContentSet as
+        described below.
 
         :param onContentSet: This calls
           onContentSet(namespace, contentNamespace, callbackId)
           where namespace is this Namespace, contentNamespace is the Namespace
-          to which the Data packet was attached and the content was set, and
-          callbackId is the callback ID returned by this method. To get the
-          content or data packet, use contentNamespace.getContent() or
-          contentNamespace.getData().
+          where the content was set, and callbackId is the callback ID returned
+          by this method. If you only care if the content has been set for this
+          Namespace (and not any of its children) then your callback can check
+          "if contentNamespace == namespace". To get the content or data packet,
+          use contentNamespace.getContent() or contentNamespace.getData().
           NOTE: The library will log any exceptions raised by this callback, but
           for better error handling the callback should catch and properly
           handle any exceptions.
