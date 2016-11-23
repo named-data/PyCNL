@@ -105,7 +105,8 @@ class Namespace(object):
         """
         Get a child (or descendant), creating it if needed. This is equivalent
         to namespace[component]. If a child is created, this calls callbacks as
-        described by addOnNameAdded,
+        described by addOnNameAdded (but does not call the callbacks when
+        creating intermediate nodes).
 
         :param nameOrComponent: If this is a Name, find or create the descendant
           node with the name (which must have this node's name as a prefix).
@@ -130,7 +131,14 @@ class Namespace(object):
             descendantNamespace = self
             while descendantNamespace._name.size() < descendantName.size():
                 nextComponent = descendantName[descendantNamespace._name.size()]
-                descendantNamespace = descendantNamespace[nextComponent]
+                if nextComponent in descendantNamespace._children:
+                    descendantNamespace = descendantNamespace._children[nextComponent]
+                else:
+                    # Only fire the callbacks for the leaf node.
+                    isLeaf = (
+                      descendantNamespace._name.size() == descendantName.size() - 1)
+                    descendantNamespace = descendantNamespace._createChild(
+                      nextComponent, isLeaf)
 
             return descendantNamespace
         else:
@@ -141,7 +149,7 @@ class Namespace(object):
             if component in self._children:
                 return self._children[component]
             else:
-                return self._createChild(component)
+                return self._createChild(component, True)
 
     def getChildComponents(self):
         """
@@ -346,7 +354,7 @@ class Namespace(object):
             raise ValueError("Namespace[] does not support slices.")
         return self.getChild(key)
 
-    def _createChild(self, component):
+    def _createChild(self, component, fireCallbacks):
         """
         Create the child with the given name component and add it to this
         namespace. This private method should only be called if the child does
@@ -355,6 +363,9 @@ class Namespace(object):
         :param component: The name component of the child.
         :type component: Name.Component or value for the Name.Component constructor
         :return: The child Namespace object.
+        :param fireCallbacks: If True, call _fireOnNameAdded for this and all
+          parent nodes. If False, don't call callbacks (for example if creating
+          intermediate nodes).
         :rtype: Namespace
         """
         child = Namespace(Name(self._name).append(component))
@@ -364,11 +375,11 @@ class Namespace(object):
         # Keep _sortedChildrenKeys synced with _children.
         bisect.insort(self._sortedChildrenKeys, component)
 
-        # Fire callbacks.
-        namespace = self
-        while namespace:
-            namespace._fireOnNameAdded(child)
-            namespace = namespace._parent
+        if fireCallbacks:
+            namespace = self
+            while namespace:
+                namespace._fireOnNameAdded(child)
+                namespace = namespace._parent
 
         return child
 
