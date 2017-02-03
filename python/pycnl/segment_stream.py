@@ -24,7 +24,6 @@ to fetch and return child segment packets in order.
 
 import logging
 from pyndn import Name, Interest
-from pyndn.util import Blob
 from pycnl.namespace import Namespace
 
 class SegmentStream(object):
@@ -157,7 +156,7 @@ class SegmentStream(object):
             nextSegmentNumber = self._maxRetrievedSegmentNumber + 1
             nextSegment = self.debugGetRightmostLeaf(
               self._namespace[Name.Component.fromSegment(nextSegmentNumber)])
-            if nextSegment.content == None:
+            if nextSegment.content.isNull():
                 break
 
             self._maxRetrievedSegmentNumber = nextSegmentNumber
@@ -189,7 +188,7 @@ class SegmentStream(object):
             child = self._namespace[component]
             # Debug: Check the leaf for content, but use the immediate child
             # for _debugSegmentStreamDidExpressInterest.
-            if (self.debugGetRightmostLeaf(child).content == None and
+            if (self.debugGetRightmostLeaf(child).content.isNull() and
                   hasattr(child, '_debugSegmentStreamDidExpressInterest') and
                   child._debugSegmentStreamDidExpressInterest):
                 nRequestedSegments += 1
@@ -206,7 +205,7 @@ class SegmentStream(object):
                 break
 
             segment = self._namespace[Name.Component.fromSegment(segmentNumber)]
-            if (self.debugGetRightmostLeaf(segment).content != None or
+            if (not self.debugGetRightmostLeaf(segment).content.isNull() or
                 (hasattr(segment, '_debugSegmentStreamDidExpressInterest') and
                   segment._debugSegmentStreamDidExpressInterest)):
                 # Already got the data packet or already requested.

@@ -26,6 +26,7 @@ import bisect
 import threading
 import logging
 from pyndn import Name, Interest
+from pyndn.util import Blob
 from pyndn.util import ExponentialReExpress
 
 class Namespace(object):
@@ -46,7 +47,7 @@ class Namespace(object):
         # (We don't use OrderedDict because it doesn't sort keys on insert.)
         self._sortedChildrenKeys = []
         self._data = None
-        self._content = None
+        self._content = Blob()
         self._face = None
         # The dictionary key is the callback ID. The value is the onNameAdded function.
         self._onNameAddedCallbacks = {}
@@ -211,7 +212,7 @@ class Namespace(object):
         getContent() may be different than the content in the attached Data
         packet (for example if the content is decrypted).
 
-        :return: The content Blob, or None if not set.
+        :return: The content Blob, or an isNull Blob if not set.
         :rtype: Blob
         """
         return self._content
@@ -362,10 +363,10 @@ class Namespace(object):
 
         :param component: The name component of the child.
         :type component: Name.Component or value for the Name.Component constructor
-        :return: The child Namespace object.
         :param fireCallbacks: If True, call _fireOnNameAdded for this and all
           parent nodes. If False, don't call callbacks (for example if creating
           intermediate nodes).
+        :return: The child Namespace object.
         :rtype: Namespace
         """
         child = Namespace(Name(self._name).append(component))
