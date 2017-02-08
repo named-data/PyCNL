@@ -241,8 +241,8 @@ class Namespace(object):
     def addOnContentSet(self, onContentSet):
         """
         Add an onContentSet callback. When the content has been set for this
-        Namespace node or any children and , this calls onContentSet as
-        described below.
+        Namespace node or any children, this calls onContentSet as described
+        below.
 
         :param onContentSet: This calls
           onContentSet(namespace, contentNamespace, callbackId)
