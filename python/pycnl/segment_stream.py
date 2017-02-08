@@ -51,11 +51,11 @@ class SegmentStream(object):
         onSegment as described below. Segments are supplied in order.
 
         :param onSegment: This calls
-          onSegment(stream, segmentNamespace, callbackId)
-          where stream is this SegmentStream, segmentNamespace is the Namespace
+          onSegment(segmentStream, segmentNamespace, callbackId)
+          where segmentStream is this SegmentStream, segmentNamespace is the Namespace
           where you can use segmentNamespace.content, and callbackId is the
           callback ID returned by this method. You must check if
-          segmentNamespace None because after supplying the final segment, this
+          segmentNamespace is None because after supplying the final segment, this
           calls onSegment(stream, None, callbackId) to signal the "end of stream".
           NOTE: The library will log any exceptions raised by this callback, but
           for better error handling the callback should catch and properly
@@ -107,7 +107,7 @@ class SegmentStream(object):
         """
         if interestPipelineSize < 1:
             raise RuntimeError("The interestPipelineSize must be at least 1")
-        return self._interestPipelineSize
+        self._interestPipelineSize = interestPipelineSize
 
     def start(self):
         """
