@@ -32,8 +32,9 @@ class SegmentedContent(object):
         to add the callback which is called when the content is complete. Then
         you should call segmentStream.start().
 
-        :param Namespace namespace: The Namespace node whose children are the
-          names of segment Data packets.
+        :param SegmentStream segmentStream: The SegmentStream where the
+          Namespace is a node whose children are the names of segment Data
+          packets.
         """
         self._segmentStream = segmentStream
         self._segments = []
@@ -50,7 +51,7 @@ class SegmentedContent(object):
         """
         return self._segmentStream
 
-    def _onSegment(self, stream, segmentNamespace, id):
+    def _onSegment(self, segmentStream, segmentNamespace, callbackId):
         if self._segments == None:
             # We already finished and called onContent. (We don't expect this.)
             return
@@ -60,7 +61,7 @@ class SegmentedContent(object):
             self._totalSize += segmentNamespace.content.size()
         else:
             # Finished. We don't need the callback anymore.
-            stream.removeCallback(id)
+            segmentStream.removeCallback(callbackId)
 
             # Concatenate the segments.
             content = bytearray(self._totalSize)
