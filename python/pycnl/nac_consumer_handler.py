@@ -31,6 +31,16 @@ class NacConsumerHandler(object):
     Create a NacConsumerHandler object to attach to the given Namespace. This
     holds an internal NAC Consumer with the given values. This uses the Face
     which must already be set for the Namespace (or one of its parents).
+
+    :param Namespace namespace: The Namespace node whose content is transformed
+      by decrypting it.
+    :param KeyChain keyChain: The keyChain used to verify data packets.
+    :param Name groupName: The reading group name that the consumer belongs to.
+      This makes a copy of the Name.
+    :param Name consumerName: The identity of the consumer. This makes a copy of
+      the Name.
+    :param ConsumerDb database: The ConsumerDb database for storing decryption
+      keys.
     """
     def __init__(self, namespace, keyChain, groupName, consumerName, database):
         # TODO: What is the right way to get access to the Face?
@@ -38,7 +48,7 @@ class NacConsumerHandler(object):
         self._consumer = Consumer(
           face, keyChain, groupName, consumerName, database)
 
-        # TODO: Use a way to set the callback whcih is better than setting the member.
+        # TODO: Use a way to set the callback which is better than setting the member.
         namespace._transformContent = self._transformContent
 
     def addDecryptionKey(self, keyName, keyBlob):
@@ -71,7 +81,7 @@ class NacConsumerHandler(object):
             try:
                 onContentTransformed(data, plainText)
             except:
-                logging.exception("Error in onConsumeComplete")
+                logging.exception("Error in onContentTransformed")
         # TODO: TransformContent should take an OnError to use here.
         def onError(code, message):
             logging.getLogger(__name__).error(
