@@ -32,7 +32,7 @@ from pyndn.security.identity import IdentityManager
 from pyndn.security.identity import MemoryIdentityStorage, MemoryPrivateKeyStorage
 from pyndn.security.policy import SelfVerifyPolicyManager
 from pycnl import Namespace, NacConsumerHandler
-from pycnl import SegmentStream, SegmentedContent
+from pycnl import SegmentedContent
 
 DEFAULT_RSA_PUBLIC_KEY_DER = bytearray([
     0x30, 0x82, 0x01, 0x22, 0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01,
@@ -194,10 +194,7 @@ def main():
             dump("Got segmented content", contentNamespace.content.toRawStr())
             enabled[0] = False
     namespace.addOnContentSet(onContentSet)
-
-    segmentStream = SegmentStream(namespace)
-    SegmentedContent(segmentStream)
-    segmentStream.start()
+    SegmentedContent(namespace).start()
 
     while enabled[0]:
         face.processEvents()

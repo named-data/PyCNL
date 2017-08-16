@@ -23,7 +23,7 @@ This tests updating a namespace based on segmented content.
 
 import time
 from pyndn import Face
-from pycnl import Namespace, SegmentStream, SegmentedContent
+from pycnl import Namespace, SegmentedContent
 
 def dump(*list):
     result = ""
@@ -33,7 +33,7 @@ def dump(*list):
 
 def main():
     face = Face("memoria.ndn.ucla.edu")
-    page = Namespace("/ndn/edu/ucla/remap/demo/ndn-js-test/named-data.net/project/ndn-ar2011.html/%FDT%F7n%9E")
+    page = Namespace("/ndn/edu/ucla/remap/demo/ndn-js-test/named-data.net/project/ndn-ar2011.html/%FDX%DC5B")
     page.setFace(face)
 
     enabled = [True]
@@ -42,10 +42,7 @@ def main():
             dump("Got segmented content size", contentNamespace.content.size())
             enabled[0] = False
     page.addOnContentSet(onContentSet)
-
-    segmentStream = SegmentStream(page)
-    SegmentedContent(segmentStream)
-    segmentStream.start()
+    SegmentedContent(page).start()
 
     # Loop calling processEvents until a callback sets enabled[0] = False.
     while enabled[0]:
