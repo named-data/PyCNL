@@ -151,7 +151,7 @@ class SegmentStream(object):
              metaInfo.getFinalBlockId().isSegment()):
             self._finalSegmentNumber = metaInfo.getFinalBlockId().toSegment()
 
-        # Retrieve as many segments as possible from the store.
+        # Report as many segments as possible where the node already has content.
         while True:
             nextSegmentNumber = self._maxRetrievedSegmentNumber + 1
             nextSegment = self.debugGetRightmostLeaf(
