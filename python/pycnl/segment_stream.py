@@ -117,7 +117,7 @@ class SegmentStream(object):
         are in order, note that children of the Namespace node are not
         necessarily added in order.
         """
-        self._namespace.expressInterest()
+        self._requestNewSegments()
 
     @staticmethod
     def debugGetRightmostLeaf(namespace):
@@ -141,7 +141,6 @@ class SegmentStream(object):
         if not (len(contentNamespace.name) >= len(self._namespace.name) + 1 and
                 contentNamespace.name[len(self._namespace.name)].isSegment()):
             # Not a segment, ignore.
-            # Debug: If this is the first call, we still need to request segments.
             return
 
         # TODO: Use the Namspace mechanism to validate the Data packet.
@@ -176,7 +175,9 @@ class SegmentStream(object):
             interestTemplate.setChildSelector(1)
             self._namespace.expressInterest(interestTemplate)
 
-        # Request new segments.
+        self._requestNewSegments()
+
+    def _requestNewSegments(self):
         childComponents = self._namespace.getChildComponents()
         # First, count how many are already requested and not received.
         nRequestedSegments = 0
