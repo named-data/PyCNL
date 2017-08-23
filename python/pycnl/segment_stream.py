@@ -109,15 +109,23 @@ class SegmentStream(object):
             raise RuntimeError("The interestPipelineSize must be at least 1")
         self._interestPipelineSize = interestPipelineSize
 
-    def start(self):
+    def start(self, interestCount = 1):
         """
         Start fetching segment Data packets and adding them as children of
         getNamespace(), calling any onSegment callbacks in order as the
         segments are received. Even though the segments supplied to onSegment
         are in order, note that children of the Namespace node are not
         necessarily added in order.
+
+        :param int interestCount: (optional) The number of initial Interests to
+          send for segments. By default this just sends an Interest for the
+          first segment and waits for the response before fetching more
+          segments, but if you know the number of segments you can reduce
+          latency by initially requesting more segments. (However, you should
+          not use a number larger than the Interest pipeline size.) If omitted,
+          use 1.
         """
-        self._requestNewSegments()
+        self._requestNewSegments(interestCount)
 
     @staticmethod
     def debugGetRightmostLeaf(namespace):
@@ -175,9 +183,12 @@ class SegmentStream(object):
             interestTemplate.setChildSelector(1)
             self._namespace.expressInterest(interestTemplate)
 
-        self._requestNewSegments()
+        self._requestNewSegments(self._interestPipelineSize)
 
-    def _requestNewSegments(self):
+    def _requestNewSegments(self, maxRequestedSegments):
+        if maxRequestedSegments < 1:
+            maxRequestedSegments = 1
+
         childComponents = self._namespace.getChildComponents()
         # First, count how many are already requested and not received.
         nRequestedSegments = 0
@@ -193,13 +204,13 @@ class SegmentStream(object):
                   hasattr(child, '_debugSegmentStreamDidExpressInterest') and
                   child._debugSegmentStreamDidExpressInterest):
                 nRequestedSegments += 1
-                if nRequestedSegments >= self._interestPipelineSize:
+                if nRequestedSegments >= maxRequestedSegments:
                     # Already maxed out on requests.
                     break
 
         # Now find unrequested segment numbers and request.
         segmentNumber = self._maxRetrievedSegmentNumber
-        while nRequestedSegments < self._interestPipelineSize:
+        while nRequestedSegments < maxRequestedSegments:
             segmentNumber += 1
             if (self._finalSegmentNumber != None and
                 segmentNumber > self._finalSegmentNumber):
