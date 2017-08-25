@@ -163,7 +163,7 @@ class SegmentStream(object):
             nextSegmentNumber = self._maxRetrievedSegmentNumber + 1
             nextSegment = self.debugGetRightmostLeaf(
               self._namespace[Name.Component.fromSegment(nextSegmentNumber)])
-            if nextSegment.content.isNull():
+            if nextSegment.content == None:
                 break
 
             self._maxRetrievedSegmentNumber = nextSegmentNumber
@@ -200,7 +200,7 @@ class SegmentStream(object):
             child = self._namespace[component]
             # Debug: Check the leaf for content, but use the immediate child
             # for _debugSegmentStreamDidExpressInterest.
-            if (self.debugGetRightmostLeaf(child).content.isNull() and
+            if (self.debugGetRightmostLeaf(child).content == None and
                   hasattr(child, '_debugSegmentStreamDidExpressInterest') and
                   child._debugSegmentStreamDidExpressInterest):
                 nRequestedSegments += 1
@@ -217,7 +217,7 @@ class SegmentStream(object):
                 break
 
             segment = self._namespace[Name.Component.fromSegment(segmentNumber)]
-            if (not self.debugGetRightmostLeaf(segment).content.isNull() or
+            if (self.debugGetRightmostLeaf(segment).content != None or
                 (hasattr(segment, '_debugSegmentStreamDidExpressInterest') and
                   segment._debugSegmentStreamDidExpressInterest)):
                 # Already got the data packet or already requested.

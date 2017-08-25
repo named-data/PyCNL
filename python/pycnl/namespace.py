@@ -47,7 +47,7 @@ class Namespace(object):
         # (We don't use OrderedDict because it doesn't sort keys on insert.)
         self._sortedChildrenKeys = []
         self._data = None
-        self._content = Blob()
+        self._content = None
         self._face = None
         # The dictionary key is the callback ID. The value is the onNameAdded function.
         self._onNameAddedCallbacks = {}
@@ -210,10 +210,14 @@ class Namespace(object):
         """
         Get the content attached to this Namespace object. Note that
         getContent() may be different than the content in the attached Data
-        packet (for example if the content is decrypted).
+        packet (for example if the content is decrypted). In the default
+        behavior, the content is the Blob content of the Data packet, but may be
+        a different type as determined by the attached handler.
 
-        :return: The content Blob, or an isNull Blob if not set.
-        :rtype: Blob
+        :return: The content which is a Blob or other type as determined by the
+           attached handler. You must cast to the correct type. If the content
+           is not set, return None.
+        :rtype: Blob or other type as determined by the attached handler
         """
         return self._content
 
@@ -401,8 +405,9 @@ class Namespace(object):
         by setData.
 
         :param Data data: The Data packet object given to setData.
-        :param Blob content: The content which may have been processed from the
+        :param content: The content which may have been processed from the
           Data packet, e.g. by decrypting.
+        :type content: Blob or other type as determined by the attached handler
         """
         self._data = data
         self._content = content
