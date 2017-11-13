@@ -26,7 +26,6 @@ import bisect
 import threading
 import logging
 from pyndn import Name, Interest
-from pyndn.util import Blob
 from pyndn.util import ExponentialReExpress
 
 class Namespace(object):
