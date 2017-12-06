@@ -31,6 +31,7 @@ from pyndn.security import KeyType, KeyChain, RsaKeyParams
 from pyndn.security.identity import IdentityManager
 from pyndn.security.identity import MemoryIdentityStorage, MemoryPrivateKeyStorage
 from pyndn.security.policy import NoVerifyPolicyManager
+from pycnl import Namespace
 
 DATA0_CONTENT = bytearray([
     # "This test message was decrypted"
@@ -212,92 +213,63 @@ def createKeyChain():
 
     return keyChain, certificateName
 
-class TestProducer(object):
-    """
-    Create a TestProducer with an OnInterestCallback for use with
-    registerPrefix to answer interests with prepared packets. When finished,
-    a callback will set _enabled to False.
-    """
-    def __init__(self, contentPrefix, userKeyName, keyChain, certificateName):
-        self._enabled = True
-        self._responseCount = 0
+def prepareData(namespace, contentPrefix, userKeyName, keyChain, certificateName):
+    # Imitate test_consumer from the PyNDN integration tests.
+    contentName0 = Name(contentPrefix).append("Content").appendSegment(0)
+    contentName1 = Name(contentPrefix).append("Content").appendSegment(1)
+    cKeyName = Name("/Prefix/SAMPLE/Content/C-KEY/1")
+    dKeyName = Name("/Prefix/READ/D-KEY/1/2")
 
-        # Imitate test_consumer from the PyNDN integration tests.
-        contentName0 = Name(contentPrefix).append("Content").appendSegment(0)
-        contentName1 = Name(contentPrefix).append("Content").appendSegment(1)
-        cKeyName = Name("/Prefix/SAMPLE/Content/C-KEY/1")
-        dKeyName = Name("/Prefix/READ/D-KEY/1/2")
+    # Generate the E-KEY and D-KEY.
+    params = RsaKeyParams()
+    fixtureDKeyBlob = RsaAlgorithm.generateKey(params).getKeyBits()
+    fixtureEKeyBlob = RsaAlgorithm.deriveEncryptKey(
+      fixtureDKeyBlob).getKeyBits()
 
-        # Generate the E-KEY and D-KEY.
-        params = RsaKeyParams()
-        fixtureDKeyBlob = RsaAlgorithm.generateKey(params).getKeyBits()
-        fixtureEKeyBlob = RsaAlgorithm.deriveEncryptKey(
-          fixtureDKeyBlob).getKeyBits()
+    # The user key.
+    fixtureUserEKeyBlob = Blob(FIXTURE_USER_E_KEY)
 
-        # The user key.
-        fixtureUserEKeyBlob = Blob(FIXTURE_USER_E_KEY)
+    # Load the C-KEY.
+    fixtureCKeyBlob = Blob(AES_KEY, False)
 
-        # Load the C-KEY.
-        fixtureCKeyBlob = Blob(AES_KEY, False)
+    # Imitate createEncryptedContent. Make two segments.
+    encryptParams = EncryptParams(EncryptAlgorithmType.AesCbc)
+    encryptParams.setInitialVector(Blob(INITIAL_VECTOR, False))
+    contentData0 = Data(contentName0)
+    Encryptor.encryptData(
+      contentData0, Blob(DATA0_CONTENT, False), cKeyName,
+      fixtureCKeyBlob,  encryptParams)
+    contentData0.getMetaInfo().setFinalBlockId(
+      Name().appendSegment(1)[0])
+    keyChain.sign(contentData0, certificateName)
+    namespace.getChild(contentData0.getName()).setData(contentData0)
 
-        # Imitate createEncryptedContent. Make two segments.
-        encryptParams = EncryptParams(EncryptAlgorithmType.AesCbc)
-        encryptParams.setInitialVector(Blob(INITIAL_VECTOR, False))
-        self._contentData0 = Data(contentName0)
-        Encryptor.encryptData(
-          self._contentData0, Blob(DATA0_CONTENT, False), cKeyName,
-          fixtureCKeyBlob,  encryptParams)
-        self._contentData0.getMetaInfo().setFinalBlockId(
-          Name().appendSegment(1)[0])
-        keyChain.sign(self._contentData0, certificateName)
+    contentData1 = Data(contentName1)
+    Encryptor.encryptData(
+      contentData1, Blob(DATA1_CONTENT, False), cKeyName,
+      fixtureCKeyBlob,  encryptParams)
+    contentData1.getMetaInfo().setFinalBlockId(
+      Name().appendSegment(1)[0])
+    keyChain.sign(contentData1, certificateName)
+    namespace.getChild(contentData1.getName()).setData(contentData1)
 
-        self._contentData1 = Data(contentName1)
-        Encryptor.encryptData(
-          self._contentData1, Blob(DATA1_CONTENT, False), cKeyName,
-          fixtureCKeyBlob,  encryptParams)
-        self._contentData1.getMetaInfo().setFinalBlockId(
-          Name().appendSegment(1)[0])
-        keyChain.sign(self._contentData1, certificateName)
+    # Imitate createEncryptedCKey.
+    cKeyData = Data(cKeyName)
+    encryptParams = EncryptParams(EncryptAlgorithmType.RsaOaep)
+    Encryptor.encryptData(
+      cKeyData, fixtureCKeyBlob, dKeyName, fixtureEKeyBlob,
+      encryptParams)
+    keyChain.sign(cKeyData, certificateName)
+    namespace.getChild(cKeyData.getName()).setData(cKeyData)
 
-        # Imitate createEncryptedCKey.
-        self._cKeyData = Data(cKeyName)
-        encryptParams = EncryptParams(EncryptAlgorithmType.RsaOaep)
-        Encryptor.encryptData(
-          self._cKeyData, fixtureCKeyBlob, dKeyName, fixtureEKeyBlob,
-          encryptParams)
-        keyChain.sign(self._cKeyData, certificateName)
-
-        # Imitate createEncryptedDKey.
-        self._dKeyData = Data(dKeyName)
-        encryptParams = EncryptParams(EncryptAlgorithmType.RsaOaep)
-        Encryptor.encryptData(
-          self._dKeyData, fixtureDKeyBlob, userKeyName, fixtureUserEKeyBlob,
-          encryptParams)
-        keyChain.sign(self._dKeyData, certificateName)
-
-    def onInterest(self, prefix, interest, face, interestFilterId, filter):
-        if interest.matchesName(self._contentData0.getName()):
-            data = self._contentData0
-        elif interest.matchesName(self._cKeyData.getName()):
-            data = self._cKeyData
-        elif interest.matchesName(self._contentData1.getName()):
-            data = self._contentData1
-        elif interest.matchesName(self._dKeyData.getName()):
-            data = self._dKeyData
-        else:
-            return
-
-        dump("Sending Data packet " + data.getName().toUri())
-        face.putData(data)
-
-        self._responseCount += 1
-        if self._responseCount >= 4:
-            # We sent all the packets.
-            self._enabled = False
-
-    def onRegisterFailed(self, prefix):
-        dump("Register failed for prefix", prefix.toUri())
-        self._enabled = False
+    # Imitate createEncryptedDKey.
+    dKeyData = Data(dKeyName)
+    encryptParams = EncryptParams(EncryptAlgorithmType.RsaOaep)
+    Encryptor.encryptData(
+      dKeyData, fixtureDKeyBlob, userKeyName, fixtureUserEKeyBlob,
+      encryptParams)
+    keyChain.sign(dKeyData, certificateName)
+    namespace.getChild(dKeyData.getName()).setData(dKeyData)
 
 def main():
     # The default Face will connect using a Unix socket, or to "localhost".
@@ -309,15 +281,15 @@ def main():
     userKeyName = Name("/U/Key")
     contentPrefix = Name("/Prefix/SAMPLE")
 
-    testProducer = TestProducer(
-      contentPrefix, userKeyName, keyChain, certificateName)
+    prefix = Namespace("/Prefix")
+    prepareData(prefix, contentPrefix, userKeyName, keyChain, certificateName)
 
-    prefix = Name("/Prefix")
-    dump("Register prefix", prefix.toUri())
-    face.registerPrefix(
-      prefix, testProducer.onInterest, testProducer.onRegisterFailed)
+    dump("Register prefix", prefix.getName().toUri())
+    # Set the face and register to receive Interests.
+    prefix.setFace(face,
+      lambda prefixName: dump("Register failed for prefix", prefixName.toUri()))
 
-    while testProducer._enabled:
+    while True:
         face.processEvents()
         # We need to sleep for a few milliseconds so we don't use 100% of the CPU.
         time.sleep(0.01)
