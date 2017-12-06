@@ -471,11 +471,11 @@ class Namespace(object):
             # No match.
             return
 
-        bestMatch = Namespace._findBestMatchName(
-          self.getChild(interestName), interest)
+        bestMatch = Namespace._findBestMatchName(self[interestName], interest)
         if bestMatch != None:
             # _findBestMatchName makes sure there is a _data packet.
-            face.putData(self.getChild(bestMatch)._data)
+            face.putData(self[bestMatch]._data)
+            return
 
         # TODO: Ask to produce the Data packet?
 
