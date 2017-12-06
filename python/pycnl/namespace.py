@@ -277,17 +277,40 @@ class Namespace(object):
         self._onNameAddedCallbacks.pop(callbackId, None)
         self._onContentSetCallbacks.pop(callbackId, None)
 
-    def setFace(self, face):
+    def setFace(self, face, onRegisterFailed = None, onRegisterSuccess = None):
         """
         Set the Face used when expressInterest is called on this or child nodes
-        (unless a child node has a different Face).
+        (unless a child node has a different Face), and optionally register to
+        receive Interest packets under this prefix and answer with Data packets.
         TODO: Replace this by a mechanism for requesting a Data object which is
         more general than a Face network operation.
 
         :param Face face: The Face object. If this Namespace object already has
-        a Face object, it is replaced.
+          a Face object, it is replaced.
+        :param onRegisterFailed: (optional) Call face.registerPrefix to
+          register to receive Interest packets under this prefix, and if
+          regixter prefix fails for any reason, this calls
+          onRegisterFailed(prefix). However, if onRegisterFailed is omitted, do
+          not register to receive Interests.
+          NOTE: The library will log any exceptions raised by this callback, but
+          for better error handling the callback should catch and properly
+          handle any exceptions.
+        :type onRegisterFailed: function object
+        :param onRegisterSuccess: (optional) This calls
+          onRegisterSuccess(prefix, registeredPrefixId) when this receives a
+          success message from the forwarder. If onRegisterSuccess is None or
+          omitted, this does not use it. (The onRegisterSuccess parameter comes
+          after onRegisterFailed because it can be None or omitted, unlike
+          onRegisterFailed.)
+          NOTE: The library will log any exceptions raised by this callback, but
+          for better error handling the callback should catch and properly
+          handle any exceptions.
         """
         self._face = face
+
+        if onRegisterFailed != None:
+            face.registerPrefix(
+              self._name, self._onInterest, onRegisterFailed, onRegisterSuccess)
 
     def expressInterest(self, interestTemplate = None):
         """
@@ -426,6 +449,67 @@ class Namespace(object):
                     self._onContentSetCallbacks[id](self, contentNamespace, id)
                 except:
                     logging.exception("Error in onContentSet")
+
+    def _onInterest(self, prefix, interest, face, interestFilterId, filter):
+        """
+        This is the default OnInterest callback which searches this node and
+        children nodes for a matching Data packet, longest prefix. This calls
+        face.putData(), or does nothing if not found.
+
+        :param Name prefix:
+        :param Interest interest:
+        :param Face face:
+        :param int interestFilterId:
+        :param InterestFilter filter:
+        """
+        interestName = interest.getName()
+        if interestName.size() >= 1 and interestName[-1].isImplicitSha256Digest():
+            # Strip the implicit digest.
+            interestName = interestName.getPrefix(-1)
+
+        if not self._name.isPrefixOf(interestName):
+            # No match.
+            return
+
+        bestMatch = Namespace._findBestMatchName(
+          self.getChild(interestName), interest)
+        if bestMatch != None:
+            # _findBestMatchName makes sure there is a _data packet.
+            face.putData(self.getChild(bestMatch)._data)
+
+        # TODO: Ask to produce the Data packet?
+
+    @staticmethod
+    def _findBestMatchName(namespace, interest):
+        """
+        This is a helper for _onInterest to find the longest-prefix match under
+        this Namespace.
+
+        :param Namespace namespace: This searches this Namespace and its children.
+        :param Interest interest: This calls interest.matchesData().
+        :return: The matched Name of None if not found.
+        :rtype: Name
+        """
+        bestMatch = None
+        # Search the children backwards which will result in a "less than" name
+        # among names of the same length.
+        for i in range(len(namespace._sortedChildrenKeys) - 1, -1, -1):
+            child = namespace._children[namespace._sortedChildrenKeys[i]]
+            childBestMatch = Namespace._findBestMatchName(child, interest)
+
+            if (childBestMatch != None and
+                (bestMatch == None or childBestMatch.size() >= bestMatch.size())):
+                bestMatch = childBestMatch
+
+        if bestMatch != None:
+            # We have a child match, and it is longer than this name, so return it.
+            return bestMatch
+
+        # TODO: Check childSelector.
+        if namespace._data != None and interest.matchesData(namespace._data):
+            return namespace._name
+
+        return None
 
     @staticmethod
     def getNextCallbackId():
