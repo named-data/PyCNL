@@ -266,6 +266,17 @@ class Namespace(object):
         self._onContentSetCallbacks[callbackId] = onContentSet
         return callbackId
 
+    def removeCallback(self, callbackId):
+        """
+        Remove the callback with the given callbackId. This does not search for
+        the callbackId in child nodes. If the callbackId isn't found, do nothing.
+
+        :param int callbackId: The callback ID returned, for example, from
+          addOnNameAdded.
+        """
+        self._onNameAddedCallbacks.pop(callbackId, None)
+        self._onContentSetCallbacks.pop(callbackId, None)
+
     def setFace(self, face):
         """
         Set the Face used when expressInterest is called on this or child nodes
@@ -338,17 +349,6 @@ class Namespace(object):
             namespace = namespace._parent
 
         return None
-
-    def removeCallback(self, callbackId):
-        """
-        Remove the callback with the given callbackId. This does not search for
-        the callbackId in child nodes. If the callbackId isn't found, do nothing.
-
-        :param int callbackId: The callback ID returned, for example, from
-          addOnNameAdded.
-        """
-        self._onNameAddedCallbacks.pop(callbackId, None)
-        self._onContentSetCallbacks.pop(callbackId, None)
 
     def __getitem__(self, key):
         """
