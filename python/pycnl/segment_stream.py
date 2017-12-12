@@ -199,11 +199,10 @@ class SegmentStream(object):
                 continue
 
             child = self._namespace[component]
-            # Debug: Check the leaf for content, but use the immediate child
-            # for _debugSegmentStreamDidExpressInterest.
-            if (self.debugGetRightmostLeaf(child).content == None and
-                  hasattr(child, '_debugSegmentStreamDidExpressInterest') and
-                  child._debugSegmentStreamDidExpressInterest):
+            # Debug: Check the leaf for content, but use the immediate child to
+            # check if the Interest was expressed.
+            if (self.debugGetRightmostLeaf(child).data == None and
+                child.state >= NamespaceState.INTEREST_EXPRESSED):
                 nRequestedSegments += 1
                 if nRequestedSegments >= maxRequestedSegments:
                     # Already maxed out on requests.
@@ -218,14 +217,12 @@ class SegmentStream(object):
                 break
 
             segment = self._namespace[Name.Component.fromSegment(segmentNumber)]
-            if (self.debugGetRightmostLeaf(segment).content != None or
-                (hasattr(segment, '_debugSegmentStreamDidExpressInterest') and
-                  segment._debugSegmentStreamDidExpressInterest)):
+            if (self.debugGetRightmostLeaf(segment).data != None or
+                segment.state >= NamespaceState.INTEREST_EXPRESSED):
                 # Already got the data packet or already requested.
                 continue
 
             nRequestedSegments += 1
-            segment._debugSegmentStreamDidExpressInterest = True
             segment.expressInterest()
 
     def _fireOnSegment(self, segmentNamespace):
