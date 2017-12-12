@@ -46,6 +46,7 @@ class Namespace(object):
         # (We don't use OrderedDict because it doesn't sort keys on insert.)
         self._sortedChildrenKeys = []
         self._state = NamespaceState.NAME_EXISTS
+        self._networkNack = None
         self._data = None
         self._content = None
         self._face = None
@@ -95,6 +96,16 @@ class Namespace(object):
         :rtype: An int from the NamespaceState enum.
         """
         return self._state
+
+    def getNetworkNack(self):
+        """
+        Get the NetworkNack for when the state is set to
+        NamespaceState.INTEREST_NETWORK_NACK .
+
+        :return: The NetworkNack, or None if one wasn't received.
+        :rtype: NetworkNack
+        """
+        return self._networkNack
 
     def hasChild(self, component):
         """
@@ -314,7 +325,12 @@ class Namespace(object):
         name is the name of this Namespace node. When the Data packet is
         received this calls setData, so you should use a callback with
         addOnStateChanged. This uses ExponentialReExpress to re-express a
-        timed-out interest with longer lifetimes.
+        timed-out interest with longer lifetimes. If the Interest times out,
+        this sets the state to NamespaceState.INTEREST_TIMEOUT and calls the
+        OnStateChanged callbacks. If this receives a network Nack, this stores
+        the NetworkNack object which you can access with getNetworkNack(), sets
+        the state to NamespaceState.INTEREST_NETWORK_NACK, and calls the
+        OnStateChanged callbacks.
         TODO: Replace this by a mechanism for requesting a Data object which is
         more general than a Face network operation.
         :raises RuntimeError: If a Face object has not been set for this or a
@@ -337,12 +353,17 @@ class Namespace(object):
         def onTimeout(interest):
             self._setState(NamespaceState.INTEREST_TIMEOUT)
 
+        def onNetworkNack(interest, networkNack):
+            self._networkNack = networkNack
+            self._setState(NamespaceState.INTEREST_NETWORK_NACK)
+
         if interestTemplate == None:
             interestTemplate = Interest()
             interestTemplate.setInterestLifetimeMilliseconds(4000)
         face.expressInterest(
           self._name, interestTemplate, onData,
-          ExponentialReExpress.makeOnTimeout(face, onData, onTimeout))
+          ExponentialReExpress.makeOnTimeout(face, onData, onTimeout),
+          onNetworkNack)
 
     def _getFace(self):
         """
@@ -540,10 +561,10 @@ class NamespaceState(object):
     NAME_EXISTS =             0
     INTEREST_EXPRESSED =      1
     INTEREST_TIMEOUT =        2
-    # TODO: INTEREST_NETWORK_NACK ?
-    DATA_RECEIVED =           3
-    DECRYPTING =              4
-    DECRYPTION_ERROR =        5
-    TRANSFORMING_CONTENT =    6
-    CONTENT_READY =           7
-    CONTENT_READY_BUT_STALE = 8
+    INTEREST_NETWORK_NACK =   3
+    DATA_RECEIVED =           4
+    DECRYPTING =              5
+    DECRYPTION_ERROR =        6
+    TRANSFORMING_CONTENT =    7
+    CONTENT_READY =           8
+    CONTENT_READY_BUT_STALE = 9
