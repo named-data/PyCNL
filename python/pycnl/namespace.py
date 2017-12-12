@@ -315,7 +315,6 @@ class Namespace(object):
         received this calls setData, so you should use a callback with
         addOnStateChanged. This uses ExponentialReExpress to re-express a
         timed-out interest with longer lifetimes.
-        TODO: How to alert the application on a final interest timeout?
         TODO: Replace this by a mechanism for requesting a Data object which is
         more general than a Face network operation.
         :raises RuntimeError: If a Face object has not been set for this or a
@@ -328,15 +327,22 @@ class Namespace(object):
         if face == None:
             raise ValueError("A Face object has not been set for this or a parent.")
 
+        # TODO: What if the state is already INTEREST_EXPRESSED?
+        self._setState(NamespaceState.INTEREST_EXPRESSED)
+
         def onData(interest, data):
+            # setData will set the state to DATA_RECEIVED.
             self[data.name].setData(data)
+
+        def onTimeout(interest):
+            self._setState(NamespaceState.INTEREST_TIMEOUT)
 
         if interestTemplate == None:
             interestTemplate = Interest()
             interestTemplate.setInterestLifetimeMilliseconds(4000)
         face.expressInterest(
           self._name, interestTemplate, onData,
-          ExponentialReExpress.makeOnTimeout(face, onData, None))
+          ExponentialReExpress.makeOnTimeout(face, onData, onTimeout))
 
     def _getFace(self):
         """
