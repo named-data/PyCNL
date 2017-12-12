@@ -104,4 +104,4 @@ class SegmentedContent(object):
             # node which has no associated Data packet? Who is authorized to do
             # so?
             self._segmentStream.namespace._onContentTransformed(
-              None, Blob(content, False))
+              Blob(content, False))

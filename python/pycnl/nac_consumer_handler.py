@@ -71,15 +71,15 @@ class NacConsumerHandler(object):
 
         :param Data data: The Data packet with the content to decrypt.
         :param onContentTransformed: This calls
-          onContentTransformed(data, plainText) where data is the given Data,
-          and plainText is the decrypted content Blob.
+          onContentTransformed(plainText) where plainText is the decrypted
+          content Blob.
         :type onContentTransformed: function object
         """
         # TODO: Use Namespace mechanisms to verify the Data packet.
 
         def onPlainText(plainText):
             try:
-                onContentTransformed(data, plainText)
+                onContentTransformed(plainText)
             except:
                 logging.exception("Error in onContentTransformed")
         # TODO: TransformContent should take an OnError to use here.

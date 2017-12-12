@@ -172,8 +172,9 @@ class Namespace(object):
 
     def setData(self, data):
         """
-        Attach the Data packet to this Namespace. This calls callbacks as
-        described by addOnStateChanged. If a Data packet is already attached, do
+        Attach the Data packet to this Namespace. This sets the state to
+        NamespaceState.DATA_RECEIVED and calls callbacks as described by
+        addOnStateChanged. However, if a Data packet is already attached, do
         nothing.
 
         :param Data data: The Data packet object whose name must equal the name
@@ -191,13 +192,16 @@ class Namespace(object):
             raise RuntimeError(
               "The Data packet name does not equal the name of this Namespace node.")
 
+        self._data = data
+        self._setState(NamespaceState.DATA_RECEIVED)
+
         transformContent = self._getTransformContent()
         # TODO: TransformContent should take an OnError.
         if transformContent != None:
             transformContent(data, self._onContentTransformed)
         else:
             # Otherwise just invoke directly.
-            self._onContentTransformed(data, data.content)
+            self._onContentTransformed(data.content)
 
     def getData(self):
         """
@@ -208,6 +212,9 @@ class Namespace(object):
         the Data packet name is the same as the name of this Namespace node,
         so you can simply use getName() instead of getData().getName(). You
         should only use getData() to get other information such as the MetaInfo.
+        (It is possible that this Namespace object has an attacked Data packet,
+        but getContent() is still None because this state has not yet changed
+        to NamespaceState.CONTENT_READY.)
 
         :return: The Data packet object, or None if not set.
         :rtype: Data
@@ -423,18 +430,16 @@ class Namespace(object):
                 except:
                     logging.exception("Error in onStateChanged")
 
-    def _onContentTransformed(self, data, content):
+    def _onContentTransformed(self, content):
         """
-        Set _data and _content to the given values, set the state to
+        Set _content to the given value, set the state to
         NamespaceState.CONTENT_READY, and fire the OnStateChanged callbacks.
         This may be called from a _transformContent handler invoked by setData.
 
-        :param Data data: The Data packet object given to setData.
         :param content: The content which may have been processed from the
           Data packet, e.g. by decrypting.
         :type content: Blob or other type as determined by the attached handler
         """
-        self._data = data
         self._content = content
         self._setState(NamespaceState.CONTENT_READY)
 
