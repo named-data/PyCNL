@@ -24,7 +24,7 @@ to fetch and return child segment packets in order.
 
 import logging
 from pyndn import Name, Interest
-from pycnl.namespace import Namespace
+from pycnl.namespace import Namespace, NamespaceState
 
 class SegmentStream(object):
     def __init__(self, namespace):
@@ -43,7 +43,7 @@ class SegmentStream(object):
         # The dictionary key is the callback ID. The value is the onSegment function.
         self._onSegmentCallbacks = {}
 
-        self._namespace.addOnContentSet(self._onContentSet)
+        self._namespace.addOnStateChanged(self._onStateChanged)
 
     def addOnSegment(self, onSegment):
         """
@@ -145,15 +145,16 @@ class SegmentStream(object):
 
             result = result[childComponents[-1]]
 
-    def _onContentSet(self, namespace, contentNamespace, callbackId):
-        if not (len(contentNamespace.name) >= len(self._namespace.name) + 1 and
-                contentNamespace.name[len(self._namespace.name)].isSegment()):
+    def _onStateChanged(self, namespace, changedNamespace, state, callbackId):
+        if not (len(changedNamespace.name) >= len(self._namespace.name) + 1 and
+                state == NamespaceState.CONTENT_READY and
+                changedNamespace.name[len(self._namespace.name)].isSegment()):
             # Not a segment, ignore.
             return
 
         # TODO: Use the Namspace mechanism to validate the Data packet.
 
-        metaInfo = contentNamespace.data.metaInfo
+        metaInfo = changedNamespace.data.metaInfo
         if (metaInfo.getFinalBlockId().getValue().size() > 0 and
              metaInfo.getFinalBlockId().isSegment()):
             self._finalSegmentNumber = metaInfo.getFinalBlockId().toSegment()

@@ -45,13 +45,12 @@ class Namespace(object):
         # The keys of _children in sorted order, kept in sync with _children.
         # (We don't use OrderedDict because it doesn't sort keys on insert.)
         self._sortedChildrenKeys = []
+        self._state = NamespaceState.NAME_EXISTS
         self._data = None
         self._content = None
         self._face = None
-        # The dictionary key is the callback ID. The value is the onNameAdded function.
-        self._onNameAddedCallbacks = {}
-        # The dictionary key is the callback ID. The value is the onContentSet function.
-        self._onContentSetCallbacks = {}
+        # The dictionary key is the callback ID. The value is the onStateChanged function.
+        self._onStateChangedCallbacks = {}
         self._transformContent = None
 
     def getName(self):
@@ -87,6 +86,16 @@ class Namespace(object):
             result = result._parent
         return result
 
+    def getState(self):
+        """
+        Get the state of this Namespace node. When a Namespace node is first
+        created, its state is NamespaceState.NAME_EXISTS .
+
+        :return: The state of this Namespace node.
+        :rtype: An int from the NamespaceState enum.
+        """
+        return self._state
+
     def hasChild(self, component):
         """
         Check if this node in the namespace has the given child.
@@ -105,7 +114,7 @@ class Namespace(object):
         """
         Get a child (or descendant), creating it if needed. This is equivalent
         to namespace[component]. If a child is created, this calls callbacks as
-        described by addOnNameAdded (but does not call the callbacks when
+        described by addOnStateChanged (but does not call the callbacks when
         creating intermediate nodes).
 
         :param nameOrComponent: If this is a Name, find or create the descendant
@@ -164,7 +173,7 @@ class Namespace(object):
     def setData(self, data):
         """
         Attach the Data packet to this Namespace. This calls callbacks as
-        described by addOnContentSet. If a Data packet is already attached, do
+        described by addOnStateChanged. If a Data packet is already attached, do
         nothing.
 
         :param Data data: The Data packet object whose name must equal the name
@@ -220,50 +229,31 @@ class Namespace(object):
         """
         return self._content
 
-    def addOnNameAdded(self, onNameAdded):
+    def addOnStateChanged(self, onStateChanged):
         """
-        Add an onNameAdded callback. When a new name is added to this namespace
-        at this node or any children, this calls onNameAdded as described below.
-
-        :param onNameAdded: This calls
-          onNameAdded(namespace, addedNamespace, callbackId)
-          where namespace is this Namespace, addedNamespace is the Namespace of
-          the added name, and callbackId is the callback ID returned by this
-          method.
-          NOTE: The library will log any exceptions raised by this callback, but
-          for better error handling the callback should catch and properly
-          handle any exceptions.
-        :type onNameAdded: function object
-        :return: The callback ID which you can use in removeCallback().
-        :rtype: int
-        """
-        callbackId = Namespace.getNextCallbackId()
-        self._onNameAddedCallbacks[callbackId] = onNameAdded
-        return callbackId
-
-    def addOnContentSet(self, onContentSet):
-        """
-        Add an onContentSet callback. When the content has been set for this
-        Namespace node or any children, this calls onContentSet as described
+        Add an onStateChanged callback. When the state changes in this namespace
+        at this node or any children, this calls onStateChanged as described
         below.
 
-        :param onContentSet: This calls
-          onContentSet(namespace, contentNamespace, callbackId)
-          where namespace is this Namespace, contentNamespace is the Namespace
-          where the content was set, and callbackId is the callback ID returned
-          by this method. If you only care if the content has been set for this
-          Namespace (and not any of its children) then your callback can check
-          "if contentNamespace == namespace". To get the content or data packet,
-          use contentNamespace.getContent() or contentNamespace.getData().
+        :param onStateChanged: This calls
+          onStateChanged(namespace, changedNamespace, state, callbackId)
+          where namespace is this Namespace, changedNamespace is the Namespace
+          (possibly a child) whose state has changed, state is the new state as
+          an int from the NamespaceState enum, and callbackId is the callback ID
+          returned by this method. If you only care if the state has changed for
+          this Namespace (and not any of its children) then your callback can
+          check "if changedNamespace == namespace". (Note that the state given
+          to the callback may be different than changedNamespace.getState() if
+          another callback has changed the state before the callback is called.)
           NOTE: The library will log any exceptions raised by this callback, but
           for better error handling the callback should catch and properly
           handle any exceptions.
-        :type onContentSet: function object
+        :type onStateChanged: function object
         :return: The callback ID which you can use in removeCallback().
         :rtype: int
         """
         callbackId = Namespace.getNextCallbackId()
-        self._onContentSetCallbacks[callbackId] = onContentSet
+        self._onStateChangedCallbacks[callbackId] = onStateChanged
         return callbackId
 
     def removeCallback(self, callbackId):
@@ -272,10 +262,9 @@ class Namespace(object):
         the callbackId in child nodes. If the callbackId isn't found, do nothing.
 
         :param int callbackId: The callback ID returned, for example, from
-          addOnNameAdded.
+          addOnStateChanged.
         """
-        self._onNameAddedCallbacks.pop(callbackId, None)
-        self._onContentSetCallbacks.pop(callbackId, None)
+        self._onStateChangedCallbacks.pop(callbackId, None)
 
     def setFace(self, face, onRegisterFailed = None, onRegisterSuccess = None):
         """
@@ -317,8 +306,8 @@ class Namespace(object):
         Call expressInterest on this (or a parent's) Face where the interest
         name is the name of this Namespace node. When the Data packet is
         received this calls setData, so you should use a callback with
-        addOnContentSet. This uses ExponentialReExpress to re-express a timed-out
-        interest with longer lifetimes.
+        addOnStateChanged. This uses ExponentialReExpress to re-express a
+        timed-out interest with longer lifetimes.
         TODO: How to alert the application on a final interest timeout?
         TODO: Replace this by a mechanism for requesting a Data object which is
         more general than a Face network operation.
@@ -389,9 +378,10 @@ class Namespace(object):
 
         :param component: The name component of the child.
         :type component: Name.Component or value for the Name.Component constructor
-        :param fireCallbacks: If True, call _fireOnNameAdded for this and all
-          parent nodes. If False, don't call callbacks (for example if creating
-          intermediate nodes).
+        :param fireCallbacks: If True, call _setState to fire OnStateChanged
+          callbacks for this and all parent nodes (where the initial state is
+          NamespaceState.NAME_EXISTS). If False, don't call callbacks (for
+          example if creating intermediate nodes).
         :return: The child Namespace object.
         :rtype: Namespace
         """
@@ -403,28 +393,41 @@ class Namespace(object):
         bisect.insort(self._sortedChildrenKeys, component)
 
         if fireCallbacks:
-            namespace = self
-            while namespace:
-                namespace._fireOnNameAdded(child)
-                namespace = namespace._parent
+            self._setState(NamespaceState.NAME_EXISTS)
 
         return child
 
-    def _fireOnNameAdded(self, addedNamespace):
+    def _setState(self, state):
+        """
+        This is a private method to set the state of this Namespace object and
+        to call the OnStateChanged callbacks for this and all parents. This does
+        not check if the state already has the given state.
+
+        :param int state: The new state as an int from the NamespaceState enum.
+        """
+        self._state = state
+
+        # Fire callbacks.
+        namespace = self
+        while namespace != None:
+            namespace._fireOnStateChanged(self, state)
+            namespace = namespace._parent
+
+    def _fireOnStateChanged(self, changedNamespace, state):
         # Copy the keys before iterating since callbacks can change the list.
-        for id in list(self._onNameAddedCallbacks.keys()):
+        for id in list(self._onStateChangedCallbacks.keys()):
             # A callback on a previous pass may have removed this callback, so check.
-            if id in self._onNameAddedCallbacks:
+            if id in self._onStateChangedCallbacks:
                 try:
-                    self._onNameAddedCallbacks[id](self, addedNamespace, id)
+                    self._onStateChangedCallbacks[id](self, changedNamespace, state, id)
                 except:
-                    logging.exception("Error in onNameAdded")
+                    logging.exception("Error in onStateChanged")
 
     def _onContentTransformed(self, data, content):
         """
-        Set _data and _content to the given values and fire the OnContentSet
-        callbacks. This may be called from a _transformContent handler invoked
-        by setData.
+        Set _data and _content to the given values, set the state to
+        NamespaceState.CONTENT_READY, and fire the OnStateChanged callbacks.
+        This may be called from a _transformContent handler invoked by setData.
 
         :param Data data: The Data packet object given to setData.
         :param content: The content which may have been processed from the
@@ -433,22 +436,7 @@ class Namespace(object):
         """
         self._data = data
         self._content = content
-
-        # Fire callbacks.
-        namespace = self
-        while namespace:
-            namespace._fireOnContentSet(self)
-            namespace = namespace._parent
-
-    def _fireOnContentSet(self, contentNamespace):
-        # Copy the keys before iterating since callbacks can change the list.
-        for id in list(self._onContentSetCallbacks.keys()):
-            # A callback on a previous pass may have removed this callback, so check.
-            if id in self._onContentSetCallbacks:
-                try:
-                    self._onContentSetCallbacks[id](self, contentNamespace, id)
-                except:
-                    logging.exception("Error in onContentSet")
+        self._setState(NamespaceState.CONTENT_READY)
 
     def _onInterest(self, prefix, interest, face, interestFilterId, filter):
         """
@@ -527,8 +515,24 @@ class Namespace(object):
 
     name = property(getName)
     parent = property(getParent)
+    state = property(getState)
     data = property(getData)
     content = property(getContent)
 
     _lastCallbackId = 0
     _lastCallbackIdLock = threading.Lock()
+
+class NamespaceState(object):
+    """
+    A NamespaceState specifies the state of a Namespace node.
+    """
+    NAME_EXISTS =             0
+    INTEREST_EXPRESSED =      1
+    INTEREST_TIMEOUT =        2
+    # TODO: INTEREST_NETWORK_NACK ?
+    DATA_RECEIVED =           3
+    DECRYPTING =              4
+    DECRYPTION_ERROR =        5
+    TRANSFORMING_CONTENT =    6
+    CONTENT_READY =           7
+    CONTENT_READY_BUT_STALE = 8

@@ -31,7 +31,7 @@ from pyndn.security import KeyType, KeyChain
 from pyndn.security.identity import IdentityManager
 from pyndn.security.identity import MemoryIdentityStorage, MemoryPrivateKeyStorage
 from pyndn.security.policy import SelfVerifyPolicyManager
-from pycnl import Namespace, NacConsumerHandler
+from pycnl import Namespace, NamespaceState, NacConsumerHandler
 from pycnl import SegmentedContent
 
 DEFAULT_RSA_PUBLIC_KEY_DER = bytearray([
@@ -189,11 +189,12 @@ def main():
     handler.addDecryptionKey(userKeyName, fixtureUserDKeyBlob)
 
     enabled = [True]
-    def onContentSet(namespace, contentNamespace, callbackId):
-        if contentNamespace == namespace:
-            dump("Got segmented content", contentNamespace.content.toRawStr())
+    def onStateChanged(namespace, changedNamespace, state, callbackId):
+        if (changedNamespace == namespace and
+            state == NamespaceState.CONTENT_READY):
+            dump("Got segmented content", changedNamespace.content.toRawStr())
             enabled[0] = False
-    namespace.addOnContentSet(onContentSet)
+    namespace.addOnStateChanged(onStateChanged)
     SegmentedContent(namespace).start()
 
     while enabled[0]:
