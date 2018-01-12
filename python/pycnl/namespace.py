@@ -27,6 +27,7 @@ import threading
 import logging
 from pyndn import Name, Interest
 from pyndn.util import ExponentialReExpress
+from pycnl.impl.pending_incoming_interest_table import PendingIncomingInterestTable
 
 class Namespace(object):
     def __init__(self, name):
@@ -57,6 +58,8 @@ class Namespace(object):
         # The dictionary key is the callback ID. The value is the onValidateStateChanged function.
         self._onValidateStateChangedCallbacks = {}
         self._transformContent = None
+        # setFace will create this in the root Namespace node.
+        self._pendingIncomingInterestTable = None
 
     def getName(self):
         """
@@ -258,19 +261,13 @@ class Namespace(object):
             raise RuntimeError(
               "The Data packet name does not equal the name of this Namespace node.")
 
+        root = self.getRoot()
+        if root._pendingIncomingInterestTable != None:
+            # Quickly send the Data packet to satisfy interest, before calling callbacks.
+            root._pendingIncomingInterestTable.satisfyInterests(data)
+
         self._data = data
         self._setState(NamespaceState.DATA_RECEIVED)
-
-        # TODO: Start the validator.
-        self._setValidateState(NamespaceValidateState.VALIDATING)
-
-        transformContent = self._getTransformContent()
-        # TODO: TransformContent should take an OnError.
-        if transformContent != None:
-            transformContent(data, self._onContentTransformed)
-        else:
-            # Otherwise just invoke directly.
-            self._onContentTransformed(data.content)
 
     def getData(self):
         """
@@ -403,6 +400,13 @@ class Namespace(object):
         self._face = face
 
         if onRegisterFailed != None:
+            root = self.getRoot()
+            if root._pendingIncomingInterestTable == None:
+                # All _onInterest callbacks share this in the root node.
+                # When we add a new data packet to a Namespace node, we will
+                # also check if it satisfies a pending interest.
+                root._pendingIncomingInterestTable = PendingIncomingInterestTable()
+
             face.registerPrefix(
               self._name, self._onInterest, onRegisterFailed, onRegisterSuccess)
 
@@ -434,8 +438,20 @@ class Namespace(object):
         self._setState(NamespaceState.INTEREST_EXPRESSED)
 
         def onData(interest, data):
+            dataNamespace = self[data.name]
             # setData will set the state to DATA_RECEIVED.
-            self[data.name].setData(data)
+            dataNamespace.setData(data)
+
+            # TODO: Start the validator.
+            dataNamespace._setValidateState(NamespaceValidateState.VALIDATING)
+
+            transformContent = dataNamespace._getTransformContent()
+            # TODO: TransformContent should take an OnError.
+            if transformContent != None:
+                transformContent(data, dataNamespace._onContentTransformed)
+            else:
+                # Otherwise just invoke directly.
+                dataNamespace._onContentTransformed(data.content)
 
         def onTimeout(interest):
             self._setState(NamespaceState.INTEREST_TIMEOUT)
@@ -577,7 +593,7 @@ class Namespace(object):
         """
         Set _content to the given value, set the state to
         NamespaceState.CONTENT_READY, and fire the OnStateChanged callbacks.
-        This may be called from a _transformContent handler invoked by setData.
+        This may be called from a _transformContent handler.
 
         :param content: The content which may have been processed from the
           Data packet, e.g. by decrypting.
@@ -590,7 +606,9 @@ class Namespace(object):
         """
         This is the default OnInterest callback which searches this node and
         children nodes for a matching Data packet, longest prefix. This calls
-        face.putData(), or does nothing if not found.
+        face.putData(). If an existing Data packet is not found, add the
+        Interest to the PendingIncomingInterestTable so that a later call to
+        setData may satisfy it.
 
         :param Name prefix:
         :param Interest interest:
@@ -607,19 +625,25 @@ class Namespace(object):
             # No match.
             return
 
-        bestMatch = Namespace._findBestMatchName(self[interestName], interest)
-        if bestMatch != None:
-            # _findBestMatchName makes sure there is a _data packet.
-            face.putData(self[bestMatch]._data)
-            return
+        # Check if the Namespace node exists and has a matching Data packet.
+        if self.hasChild(interestName):
+            bestMatch = Namespace._findBestMatchName(self[interestName], interest)
+            if bestMatch != None:
+                # _findBestMatchName makes sure there is a _data packet.
+                face.putData(self[bestMatch]._data)
+                return
 
-        # TODO: Ask to produce the Data packet?
+        # No Data packet found, so save the pending Interest.
+        self.getRoot()._pendingIncomingInterestTable.add(interest, face)
+        # Signal that a Data packet is needed.
+        # Debug should it be a different state from INTEREST_EXPRESSED?
+        self.getChild(interestName)._setState(NamespaceState.INTEREST_EXPRESSED)
 
     @staticmethod
     def _findBestMatchName(namespace, interest):
         """
         This is a helper for _onInterest to find the longest-prefix match under
-        this Namespace.
+        the Namespace.
 
         :param Namespace namespace: This searches this Namespace and its children.
         :param Interest interest: This calls interest.matchesData().
