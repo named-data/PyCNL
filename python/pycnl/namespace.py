@@ -484,7 +484,7 @@ class Namespace(object):
         bisect.insort(self._sortedChildrenKeys, component)
 
         if fireCallbacks:
-            self._setState(NamespaceState.NAME_EXISTS)
+            child._setState(NamespaceState.NAME_EXISTS)
 
         return child
 
