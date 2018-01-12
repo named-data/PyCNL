@@ -31,7 +31,7 @@ from pyndn.security import KeyType, KeyChain, RsaKeyParams
 from pyndn.security.identity import IdentityManager
 from pyndn.security.identity import MemoryIdentityStorage, MemoryPrivateKeyStorage
 from pyndn.security.policy import NoVerifyPolicyManager
-from pycnl import Namespace
+from pycnl import Namespace, NamespaceState
 
 DATA0_CONTENT = bytearray([
     # "This test message was decrypted"
@@ -213,11 +213,14 @@ def createKeyChain():
 
     return keyChain, certificateName
 
-def prepareData(namespace, contentPrefix, userKeyName, keyChain, certificateName):
+def prepareData(namespace, userKeyName, cKeyName, keyChain, certificateName):
+    """
+    Create the encrypted C-KEY and D-KEY, and add to the Namespace object.
+
+    :return: The C-KEY for encrypting the content.
+    :rtype: Blob
+    """
     # Imitate test_consumer from the PyNDN integration tests.
-    contentName0 = Name(contentPrefix).append("Content").appendSegment(0)
-    contentName1 = Name(contentPrefix).append("Content").appendSegment(1)
-    cKeyName = Name("/Prefix/SAMPLE/Content/C-KEY/1")
     dKeyName = Name("/Prefix/READ/D-KEY/1/2")
 
     # Generate the E-KEY and D-KEY.
@@ -232,27 +235,6 @@ def prepareData(namespace, contentPrefix, userKeyName, keyChain, certificateName
     # Load the C-KEY.
     fixtureCKeyBlob = Blob(AES_KEY, False)
 
-    # Imitate createEncryptedContent. Make two segments.
-    encryptParams = EncryptParams(EncryptAlgorithmType.AesCbc)
-    encryptParams.setInitialVector(Blob(INITIAL_VECTOR, False))
-    contentData0 = Data(contentName0)
-    Encryptor.encryptData(
-      contentData0, Blob(DATA0_CONTENT, False), cKeyName,
-      fixtureCKeyBlob,  encryptParams)
-    contentData0.getMetaInfo().setFinalBlockId(
-      Name().appendSegment(1)[0])
-    keyChain.sign(contentData0, certificateName)
-    namespace.getChild(contentData0.getName()).setData(contentData0)
-
-    contentData1 = Data(contentName1)
-    Encryptor.encryptData(
-      contentData1, Blob(DATA1_CONTENT, False), cKeyName,
-      fixtureCKeyBlob,  encryptParams)
-    contentData1.getMetaInfo().setFinalBlockId(
-      Name().appendSegment(1)[0])
-    keyChain.sign(contentData1, certificateName)
-    namespace.getChild(contentData1.getName()).setData(contentData1)
-
     # Imitate createEncryptedCKey.
     cKeyData = Data(cKeyName)
     encryptParams = EncryptParams(EncryptAlgorithmType.RsaOaep)
@@ -260,7 +242,7 @@ def prepareData(namespace, contentPrefix, userKeyName, keyChain, certificateName
       cKeyData, fixtureCKeyBlob, dKeyName, fixtureEKeyBlob,
       encryptParams)
     keyChain.sign(cKeyData, certificateName)
-    namespace.getChild(cKeyData.getName()).setData(cKeyData)
+    namespace[cKeyData.getName()].setData(cKeyData)
 
     # Imitate createEncryptedDKey.
     dKeyData = Data(dKeyName)
@@ -269,7 +251,9 @@ def prepareData(namespace, contentPrefix, userKeyName, keyChain, certificateName
       dKeyData, fixtureDKeyBlob, userKeyName, fixtureUserEKeyBlob,
       encryptParams)
     keyChain.sign(dKeyData, certificateName)
-    namespace.getChild(dKeyData.getName()).setData(dKeyData)
+    namespace[dKeyData.getName()].setData(dKeyData)
+
+    return fixtureCKeyBlob
 
 def main():
     # The default Face will connect using a Unix socket, or to "localhost".
@@ -279,10 +263,44 @@ def main():
     face.setCommandSigningInfo(keyChain, certificateName)
 
     userKeyName = Name("/U/Key")
-    contentPrefix = Name("/Prefix/SAMPLE")
-
     prefix = Namespace("/Prefix")
-    prepareData(prefix, contentPrefix, userKeyName, keyChain, certificateName)
+    contentPrefix = Name(prefix.getName()).append("SAMPLE").append("Content")
+    cKeyName = Name(contentPrefix).append("C-KEY").append("1")
+
+    cKeyBlob = prepareData(prefix, userKeyName, cKeyName, keyChain, certificateName)
+
+    # Make the callback to produce a Data packet for a content segment.
+    # Debug should it be a different state from INTEREST_EXPRESSED?
+    def onStateChanged(namespace, changedNamespace, state, callbackId):
+        if not (state == NamespaceState.INTEREST_EXPRESSED and
+                len(changedNamespace.name) == len(contentPrefix) + 1 and
+                contentPrefix.isPrefixOf(changedNamespace.name) and
+                changedNamespace.name[len(contentPrefix)].isSegment()):
+            # Not a content segment, ignore.
+            return
+
+        # Get the segment number.
+        segment = changedNamespace.name[len(contentPrefix)].toSegment()
+        if not (segment >= 0 and segment <= 1):
+            # An invalid segment was requested.
+            return
+
+        # Make the Data packet for the segment. Imitate createEncryptedContent.
+        segmentContent = DATA0_CONTENT if segment == 0 else DATA1_CONTENT
+        encryptParams = EncryptParams(EncryptAlgorithmType.AesCbc)
+        encryptParams.setInitialVector(Blob(INITIAL_VECTOR, False))
+        data = Data(Name(contentPrefix).appendSegment(segment))
+        Encryptor.encryptData(
+          data, Blob(segmentContent, False), cKeyName, cKeyBlob,
+          encryptParams)
+        data.getMetaInfo().setFinalBlockId(Name().appendSegment(1)[0])
+        keyChain.sign(data, certificateName)
+
+        # Now call setData which will answer the pending incoming Interest.
+        # Note that the encrypted name has extra child components for the C-KEY.
+        changedNamespace[data.name].setData(data)
+
+    prefix.addOnStateChanged(onStateChanged)
 
     dump("Register prefix", prefix.getName().toUri())
     # Set the face and register to receive Interests.
