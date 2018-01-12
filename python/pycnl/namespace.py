@@ -132,19 +132,49 @@ class Namespace(object):
         """
         return self._validationError
 
-    def hasChild(self, component):
+    def hasChild(self, nameOrComponent):
         """
-        Check if this node in the namespace has the given child.
+        Check if this node in the namespace has the given child (or decendant).
 
-        :param component: The name component of the child.
-        :type component: Name.Component or value for the Name.Component constructor
-        :return: True if this has a child with the name component.
+        :param nameOrComponent: If this is a Name, check if there is a
+          descendant node with the name (which must have this node's name as a
+          prefix). Otherwise, this is the name component of the child to check.
+        :type component: Name or Name.Component or value for the Name.Component
+          constructor
+        :return: True if this has a child with the name or name component. This
+          also returns True if nameOrComponent is a Name that equals the name of
+          this node.
         :rtype: bool
         """
-        if not isinstance(component, Name.Component):
-            component = Name.Component(component)
+        if isinstance(nameOrComponent, Name):
+            descendantName = nameOrComponent
+            if not self._name.isPrefixOf(descendantName):
+                raise RuntimeError(
+                  "The name of this node is not a prefix of the descendant name")
 
-        return component in self._children
+            if descendantName.size() == self._name.size():
+                # A trivial case where it is already the name of this node.
+                return True
+
+            # Find the child node whose name equals the descendantName.
+            # We know descendantNamespace is a prefix, so we can just go by
+            # component count instead of a full compare.
+            descendantNamespace = self
+            while True:
+                nextComponent = descendantName[descendantNamespace._name.size()]
+                if not (nextComponent in descendantNamespace._children):
+                    return False
+
+                if descendantNamespace._name.size() + 1 == descendantName.size():
+                    # nextComponent is the final component.
+                    return True
+                descendantNamespace = descendantNamespace._children[nextComponent]
+        else:
+            component = nameOrComponent
+            if not isinstance(component, Name.Component):
+                component = Name.Component(component)
+
+            return component in self._children
 
     def getChild(self, nameOrComponent):
         """
