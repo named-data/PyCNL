@@ -51,7 +51,7 @@ class Namespace(object):
         self._validateState = NamespaceValidateState.WAITING_FOR_DATA
         self._validationError = None
         self._data = None
-        self._content = None
+        self._object = None
         self._face = None
         # The dictionary key is the callback ID. The value is the onStateChanged function.
         self._onStateChangedCallbacks = {}
@@ -272,35 +272,35 @@ class Namespace(object):
     def getData(self):
         """
         Get the Data packet attached to this Namespace object. Note that
-        getContent() may be different than the content in the attached Data
-        packet (for example if the content is decrypted). To get the content,
-        you should use getContent() instead of getData().getContent(). Also,
-        the Data packet name is the same as the name of this Namespace node,
+        getObject() may be different than the content in the attached Data
+        packet (for example if the content is decrypted). To get the deserialized
+        content, you should use getObject() instead of getData().getContent().
+        Also, the Data packet name is the same as the name of this Namespace node,
         so you can simply use getName() instead of getData().getName(). You
         should only use getData() to get other information such as the MetaInfo.
         (It is possible that this Namespace object has an attacked Data packet,
-        but getContent() is still None because this state has not yet changed
-        to NamespaceState.CONTENT_READY.)
+        but getObject() is still None because this state has not yet changed
+        to NamespaceState.OBJECT_READY.)
 
         :return: The Data packet object, or None if not set.
         :rtype: Data
         """
         return self._data
 
-    def getContent(self):
+    def getObject(self):
         """
-        Get the content attached to this Namespace object. Note that
-        getContent() may be different than the content in the attached Data
+        Get the deserialized object attached to this Namespace object. Note that
+        getObject() may be different than the content in the attached Data
         packet (for example if the content is decrypted). In the default
-        behavior, the content is the Blob content of the Data packet, but may be
+        behavior, the object is the Blob content of the Data packet, but may be
         a different type as determined by the attached handler.
 
-        :return: The content which is a Blob or other type as determined by the
-           attached handler. You must cast to the correct type. If the content
+        :return: The object which is a Blob or other type as determined by the
+           attached handler. You must cast to the correct type. If the object
            is not set, return None.
         :rtype: Blob or other type as determined by the attached handler
         """
-        return self._content
+        return self._object
 
     def addOnStateChanged(self, onStateChanged):
         """
@@ -451,7 +451,7 @@ class Namespace(object):
                 transformContent(data, dataNamespace._onContentTransformed)
             else:
                 # Otherwise just invoke directly.
-                dataNamespace._onContentTransformed(data.content)
+                dataNamespace._onContentTransformed(data.getContent())
 
         def onTimeout(interest):
             self._setState(NamespaceState.INTEREST_TIMEOUT)
@@ -589,18 +589,18 @@ class Namespace(object):
                 except:
                     logging.exception("Error in onValidateStateChanged")
 
-    def _onContentTransformed(self, content):
+    def _onContentTransformed(self, obj):
         """
-        Set _content to the given value, set the state to
-        NamespaceState.CONTENT_READY, and fire the OnStateChanged callbacks.
+        Set _object to the given value, set the state to
+        NamespaceState.OBJECT_READY, and fire the OnStateChanged callbacks.
         This may be called from a _transformContent handler.
 
-        :param content: The content which may have been processed from the
+        :param obj: The object which may have been processed from the
           Data packet, e.g. by decrypting.
-        :type content: Blob or other type as determined by the attached handler
+        :type obj: Blob or other type as determined by the attached handler
         """
-        self._content = content
-        self._setState(NamespaceState.CONTENT_READY)
+        self._object = obj
+        self._setState(NamespaceState.OBJECT_READY)
 
     def _onInterest(self, prefix, interest, face, interestFilterId, filter):
         """
@@ -690,7 +690,8 @@ class Namespace(object):
     state = property(getState)
     validateState = property(getValidateState)
     data = property(getData)
-    content = property(getContent)
+    # object is a special Python term, so use obj .
+    obj = property(getObject)
 
     _lastCallbackId = 0
     _lastCallbackIdLock = threading.Lock()
@@ -707,8 +708,8 @@ class NamespaceState(object):
     DECRYPTING =              5
     DECRYPTION_ERROR =        6
     TRANSFORMING_CONTENT =    7
-    CONTENT_READY =           8
-    CONTENT_READY_BUT_STALE = 9
+    OBJECT_READY =           8
+    OBJECT_READY_BUT_STALE = 9
 
 class NamespaceValidateState(object):
     """

@@ -31,7 +31,7 @@ class SegmentedContent(object):
         Create a SegmentedContent object to use a SegmentStream to assemble
         content. You should use getNamespace().addOnStateChanged to add the
         callback which is called when the content is complete and the state is
-        set to NamespaceState.CONTENT_READY. Then you should call start().
+        set to NamespaceState.OBJECT_READY. Then you should call start().
 
         :param segmentStreamOrNamespace: A SegmentStream where its
           Namespace is a node whose children are the names of segment Data
@@ -71,7 +71,7 @@ class SegmentedContent(object):
         """
         Start fetching segment Data packets. When done, the library will call
         the callback given to getNamespace().addOnStateChanged which should
-        check for NamespaceState.CONTENT_READY.
+        check for NamespaceState.OBJECT_READY.
         """
         self._segmentStream.start()
 
@@ -81,8 +81,8 @@ class SegmentedContent(object):
             return
           
         if segmentNamespace != None:
-            self._segments.append(segmentNamespace.content)
-            self._totalSize += segmentNamespace.content.size()
+            self._segments.append(segmentNamespace.getObject())
+            self._totalSize += segmentNamespace.getObject().size()
         else:
             # Finished. We don't need the callback anymore.
             segmentStream.removeCallback(callbackId)

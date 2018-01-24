@@ -53,7 +53,7 @@ class SegmentStream(object):
         :param onSegment: This calls
           onSegment(segmentStream, segmentNamespace, callbackId)
           where segmentStream is this SegmentStream, segmentNamespace is the Namespace
-          where you can use segmentNamespace.content, and callbackId is the
+          where you can use segmentNamespace.getObject(), and callbackId is the
           callback ID returned by this method. You must check if
           segmentNamespace is None because after supplying the final segment, this
           calls onSegment(stream, None, callbackId) to signal the "end of stream".
@@ -147,7 +147,7 @@ class SegmentStream(object):
 
     def _onStateChanged(self, namespace, changedNamespace, state, callbackId):
         if not (len(changedNamespace.name) >= len(self._namespace.name) + 1 and
-                state == NamespaceState.CONTENT_READY and
+                state == NamespaceState.OBJECT_READY and
                 changedNamespace.name[len(self._namespace.name)].isSegment()):
             # Not a segment, ignore.
             return
@@ -164,7 +164,7 @@ class SegmentStream(object):
             nextSegmentNumber = self._maxRetrievedSegmentNumber + 1
             nextSegment = self.debugGetRightmostLeaf(
               self._namespace[Name.Component.fromSegment(nextSegmentNumber)])
-            if nextSegment.content == None:
+            if nextSegment.getObject() == None:
                 break
 
             self._maxRetrievedSegmentNumber = nextSegmentNumber
