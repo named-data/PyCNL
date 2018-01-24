@@ -39,8 +39,8 @@ def main():
     enabled = [True]
     def onStateChanged(namespace, changedNamespace, state, callbackId):
         if (changedNamespace == namespace and
-            state == NamespaceState.CONTENT_READY):
-            dump("Got segmented content size", changedNamespace.content.size())
+            state == NamespaceState.OBJECT_READY):
+            dump("Got segmented content size", changedNamespace.getObject().size())
             enabled[0] = False
     page.addOnStateChanged(onStateChanged)
     SegmentedContent(page).start()

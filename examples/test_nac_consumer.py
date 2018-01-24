@@ -191,8 +191,8 @@ def main():
     enabled = [True]
     def onStateChanged(namespace, changedNamespace, state, callbackId):
         if (changedNamespace == namespace and
-            state == NamespaceState.CONTENT_READY):
-            dump("Got segmented content", changedNamespace.content.toRawStr())
+            state == NamespaceState.OBJECT_READY):
+            dump("Got segmented content", changedNamespace.getObject().toRawStr())
             enabled[0] = False
     namespace.addOnStateChanged(onStateChanged)
     SegmentedContent(namespace).start()
