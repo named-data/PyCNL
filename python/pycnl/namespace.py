@@ -728,14 +728,14 @@ class NamespaceState(object):
     """
     A NamespaceState specifies the state of a Namespace node.
     """
-    NAME_EXISTS =             0
-    INTEREST_EXPRESSED =      1
-    INTEREST_TIMEOUT =        2
-    INTEREST_NETWORK_NACK =   3
-    DATA_RECEIVED =           4
-    DECRYPTING =              5
-    DECRYPTION_ERROR =        6
-    TRANSFORMING_CONTENT =    7
+    NAME_EXISTS =            0
+    INTEREST_EXPRESSED =     1
+    INTEREST_TIMEOUT =       2
+    INTEREST_NETWORK_NACK =  3
+    DATA_RECEIVED =          4
+    DECRYPTING =             5
+    DECRYPTION_ERROR =       6
+    TRANSFORMING_CONTENT =   7
     OBJECT_READY =           8
     OBJECT_READY_BUT_STALE = 9
 
