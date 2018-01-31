@@ -30,7 +30,7 @@ from pyndn.util import ExponentialReExpress
 from pycnl.impl.pending_incoming_interest_table import PendingIncomingInterestTable
 
 class Namespace(object):
-    def __init__(self, name):
+    def __init__(self, name, keyChain = None):
         """
         Create a Namespace object with the given name, and with no parent. This
         is the root of the name tree. To create child nodes, use
@@ -38,6 +38,8 @@ class Namespace(object):
 
         :param Name name: The name of this root node in the namespace. This
           makes a copy of the name.
+        :param KeyChain keyChain: (optional) The KeyChain for signing packets,
+          if needed. You can also call setKeyChain().
         """
         self._name = Name(name)
         self._parent = None
@@ -53,6 +55,7 @@ class Namespace(object):
         self._data = None
         self._object = None
         self._face = None
+        self._keyChain = keyChain
         # The dictionary key is the callback ID. The value is the onStateChanged function.
         self._onStateChangedCallbacks = {}
         # The dictionary key is the callback ID. The value is the onValidateStateChanged function.
@@ -410,6 +413,15 @@ class Namespace(object):
             face.registerPrefix(
               self._name, self._onInterest, onRegisterFailed, onRegisterSuccess)
 
+    def setKeyChain(self, keyChain):
+        """
+        Set the KeyChain used to sign packets (if needed) at this or child
+        nodes. If a KeyChain already exists at this node, it is replaced.
+
+        :param KeyChain keyChain: The KeyChain.
+        """
+        self._keyChain = keyChain
+
     def expressInterest(self, interestTemplate = None):
         """
         Call expressInterest on this (or a parent's) Face where the interest
@@ -479,6 +491,22 @@ class Namespace(object):
         while namespace != None:
             if namespace._face != None:
                 return namespace._face
+            namespace = namespace._parent
+
+        return None
+
+    def _getKeyChain(self):
+        """
+        Get the KeyChain set by setKeyChain (or the NameSpace constructor) on
+        this or a parent Namespace node.
+
+        :return: The KeyChain, or None if not set on this or any parent.
+        :rtype: KeyChain
+        """
+        namespace = self
+        while namespace != None:
+            if namespace._keyChain != None:
+                return namespace._keyChain
             namespace = namespace._parent
 
         return None
