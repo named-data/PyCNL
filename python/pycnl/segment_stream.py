@@ -37,7 +37,6 @@ class SegmentStream(object):
         """
         self._namespace = namespace
         self._maxRetrievedSegmentNumber = -1
-        self._didRequestFinalSegment = False
         self._finalSegmentNumber = None
         self._interestPipelineSize = 8
         # The dictionary key is the callback ID. The value is the onSegment function.
@@ -175,14 +174,6 @@ class SegmentStream(object):
                 # Finished.
                 self._fireOnSegment(None)
                 return
-
-        if self._finalSegmentNumber == None and not self._didRequestFinalSegment:
-            self._didRequestFinalSegment = True
-            # Try to determine the final segment now.
-            interestTemplate = Interest()
-            interestTemplate.setInterestLifetimeMilliseconds(4000)
-            interestTemplate.setChildSelector(1)
-            self._namespace.expressInterest(interestTemplate)
 
         self._requestNewSegments(self._interestPipelineSize)
 
