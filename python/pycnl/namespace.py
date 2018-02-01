@@ -60,6 +60,7 @@ class Namespace(object):
         self._onStateChangedCallbacks = {}
         # The dictionary key is the callback ID. The value is the onValidateStateChanged function.
         self._onValidateStateChangedCallbacks = {}
+        self._onObjectNeededCallbacks = {}
         self._transformContent = None
         # setFace will create this in the root Namespace node.
         self._pendingIncomingInterestTable = None
@@ -360,6 +361,11 @@ class Namespace(object):
         self._onValidateStateChangedCallbacks[callbackId] = onValidateStateChanged
         return callbackId
 
+    def addOnObjectNeeded(self, onObjectNeeded):
+        callbackId = Namespace.getNextCallbackId()
+        self._onObjectNeededCallbacks[callbackId] = onObjectNeeded
+        return callbackId
+
     def removeCallback(self, callbackId):
         """
         Remove the callback with the given callbackId. This does not search for
@@ -421,6 +427,26 @@ class Namespace(object):
         :param KeyChain keyChain: The KeyChain.
         """
         self._keyChain = keyChain
+
+    def objectNeeded(self):
+        # Debug: Check if we already have the object. (But maybe not the _data?)
+
+        # Ask all OnObjectNeeded callbacks if they can produce.
+        canProduce = False
+        namespace = self
+        while namespace != None:
+            if namespace._fireOnObjectNeeded(self):
+                canProduce = True
+            namespace = namespace._parent
+
+        if canProduce:
+            # Assume that the application will produce the object.
+            return
+
+        # Debug: Check if the object has been set (even if onObjectNeeded returned False.
+
+        # Debug: Need an Interest template?
+        self.expressInterest()
 
     def expressInterest(self, interestTemplate = None):
         """
@@ -617,6 +643,20 @@ class Namespace(object):
                 except:
                     logging.exception("Error in onValidateStateChanged")
 
+    def _fireOnObjectNeeded(self, neededNamespace):
+        canProduce = False
+        # Copy the keys before iterating since callbacks can change the list.
+        for id in list(self._onObjectNeededCallbacks.keys()):
+            # A callback on a previous pass may have removed this callback, so check.
+            if id in self._onObjectNeededCallbacks:
+                try:
+                    if self._onObjectNeededCallbacks[id](self, neededNamespace, id):
+                        canProduce = True
+                except:
+                    logging.exception("Error in onObjectNeeded")
+
+        return canProduce
+
     def _onContentTransformed(self, obj):
         """
         Set _object to the given value, set the state to
@@ -664,8 +704,7 @@ class Namespace(object):
         # No Data packet found, so save the pending Interest.
         self.getRoot()._pendingIncomingInterestTable.add(interest, face)
         # Signal that a Data packet is needed.
-        # Debug should it be a different state from INTEREST_EXPRESSED?
-        self.getChild(interestName)._setState(NamespaceState.INTEREST_EXPRESSED)
+        self.getChild(interestName).objectNeeded()
 
     @staticmethod
     def _findBestMatchName(namespace, interest):
