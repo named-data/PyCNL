@@ -251,27 +251,25 @@ def main():
     face.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName())
 
     userKeyName = Name("/U/Key")
-    prefix = Namespace("/Prefix")
+    prefix = Namespace("/Prefix", keyChain)
     contentPrefix = Name(prefix.getName()).append("SAMPLE").append("Content")
     cKeyName = Name(contentPrefix).append("C-KEY").append("1")
 
     cKeyBlob = prepareData(prefix, userKeyName, cKeyName, keyChain)
 
     # Make the callback to produce a Data packet for a content segment.
-    # Debug should it be a different state from INTEREST_EXPRESSED?
-    def onStateChanged(namespace, changedNamespace, state, callbackId):
-        if not (state == NamespaceState.INTEREST_EXPRESSED and
-                len(changedNamespace.name) == len(contentPrefix) + 1 and
-                contentPrefix.isPrefixOf(changedNamespace.name) and
-                changedNamespace.name[len(contentPrefix)].isSegment()):
+    def onObjectNeeded(namespace, neededNamespace, id):
+        if not (len(neededNamespace.name) == len(contentPrefix) + 1 and
+                contentPrefix.isPrefixOf(neededNamespace.name) and
+                neededNamespace.name[len(contentPrefix)].isSegment()):
             # Not a content segment, ignore.
-            return
+            return False
 
         # Get the segment number.
-        segment = changedNamespace.name[len(contentPrefix)].toSegment()
+        segment = neededNamespace.name[len(contentPrefix)].toSegment()
         if not (segment >= 0 and segment <= 1):
             # An invalid segment was requested.
-            return
+            return False
 
         # Make the Data packet for the segment. Imitate createEncryptedContent.
         segmentContent = DATA0_CONTENT if segment == 0 else DATA1_CONTENT
@@ -286,9 +284,10 @@ def main():
 
         # Now call setData which will answer the pending incoming Interest.
         # Note that the encrypted name has extra child components for the C-KEY.
-        changedNamespace[data.name].setData(data)
+        neededNamespace[data.name].setData(data)
+        return True
 
-    prefix.addOnStateChanged(onStateChanged)
+    prefix.addOnObjectNeeded(onObjectNeeded)
 
     dump("Register prefix", prefix.getName().toUri())
     # Set the face and register to receive Interests.
