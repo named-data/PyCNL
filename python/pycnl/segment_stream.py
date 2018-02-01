@@ -214,7 +214,7 @@ class SegmentStream(object):
                 continue
 
             nRequestedSegments += 1
-            segment.expressInterest()
+            segment.objectNeeded()
 
     def _fireOnSegment(self, segmentNamespace):
         # Copy the keys before iterating since callbacks can change the list.
