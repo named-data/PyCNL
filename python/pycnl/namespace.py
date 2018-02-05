@@ -439,11 +439,12 @@ class Namespace(object):
                 canProduce = True
             namespace = namespace._parent
 
+        # Debug: Check if the object has been set (even if onObjectNeeded returned False.
+
         if canProduce:
             # Assume that the application will produce the object.
+            self._setState(NamespaceState.PRODUCING_OBJECT)
             return
-
-        # Debug: Check if the object has been set (even if onObjectNeeded returned False.
 
         # Debug: Need an Interest template?
         self.expressInterest()
@@ -492,9 +493,11 @@ class Namespace(object):
                 dataNamespace._onContentTransformed(data.getContent())
 
         def onTimeout(interest):
+            # TODO: Need to detect a timeout on a child node.
             self._setState(NamespaceState.INTEREST_TIMEOUT)
 
         def onNetworkNack(interest, networkNack):
+            # TODO: Need to detect a network nack on a child node.
             self._networkNack = networkNack
             self._setState(NamespaceState.INTEREST_NETWORK_NACK)
 
@@ -767,16 +770,20 @@ class NamespaceState(object):
     """
     A NamespaceState specifies the state of a Namespace node.
     """
-    NAME_EXISTS =            0
-    INTEREST_EXPRESSED =     1
-    INTEREST_TIMEOUT =       2
-    INTEREST_NETWORK_NACK =  3
-    DATA_RECEIVED =          4
-    DECRYPTING =             5
-    DECRYPTION_ERROR =       6
-    TRANSFORMING_CONTENT =   7
-    OBJECT_READY =           8
-    OBJECT_READY_BUT_STALE = 9
+    NAME_EXISTS =             0
+    INTEREST_EXPRESSED =      1
+    INTEREST_TIMEOUT =        2
+    INTEREST_NETWORK_NACK =   3
+    DATA_RECEIVED =           4
+    DECRYPTING =              5
+    DECRYPTION_ERROR =        6
+    PRODUCING_OBJECT =        7
+    ENCRYPTING =              8
+    ENCRYPTION_ERROR =        9
+    SIGNING =                10
+    SIGNING_ERROR =          11
+    OBJECT_READY =           12
+    OBJECT_READY_BUT_STALE = 13
 
 class NamespaceValidateState(object):
     """
