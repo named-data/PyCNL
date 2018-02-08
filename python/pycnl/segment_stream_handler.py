@@ -23,26 +23,22 @@ to fetch and return child segment packets in order.
 """
 
 import logging
-from pyndn import Name, Interest
+from pyndn import Name
 from pycnl.namespace import Namespace, NamespaceState
 
-class SegmentStream(object):
-    def __init__(self, namespace):
-        """
-        Create a SegmentStream object to attach to the given namespace. You can
-        add callbacks and set options, then you should call start().
+class SegmentStreamHandler(Namespace.Handler):
+    def __init__(self, onSegment = None):
+        super(SegmentStreamHandler, self).__init__()
 
-        :param Namespace namespace: The Namespace node whose children are the
-          names of segment Data packets.
-        """
-        self._namespace = namespace
         self._maxRetrievedSegmentNumber = -1
         self._finalSegmentNumber = None
         self._interestPipelineSize = 8
+        self._initialInterestCount = 1
         # The dictionary key is the callback ID. The value is the onSegment function.
         self._onSegmentCallbacks = {}
 
-        self._namespace.addOnStateChanged(self._onStateChanged)
+        if onSegment != None:
+            self.addOnSegment(onSegment)
 
     def addOnSegment(self, onSegment):
         """
@@ -77,15 +73,6 @@ class SegmentStream(object):
         """
         self._onSegmentCallbacks.pop(callbackId, None)
 
-    def getNamespace(self):
-        """
-        Get the Namespace object given to the constructor.
-
-        :return: The Namespace object given to the constructor.
-        :rtype: Namespace
-        """
-        return self._namespace
-
     def getInterestPipelineSize(self):
         """
         Get the number of outstanding interests which this maintains while
@@ -108,23 +95,48 @@ class SegmentStream(object):
             raise RuntimeError("The interestPipelineSize must be at least 1")
         self._interestPipelineSize = interestPipelineSize
 
-    def start(self, interestCount = 1):
+    def getInitialInterestCount(self):
+        """
+        Get the initial Interest count (as described in setInitialInterestCount).
+
+        :return: The initial Interest count.
+        :rtype: int
+        """
+        return self._initialInterestCount
+
+    def setInitialInterestCount(self, initialInterestCount):
+        """
+        Set the number of initial Interests to send for segments. By default
+          this just sends an Interest for the first segment and waits for the
+          response before fetching more segments, but if you know the number of
+          segments you can reduce latency by initially requesting more segments.
+          (However, you should not use a number larger than the Interest
+          pipeline size.)
+
+        :param int initialInterestCount: The initial Interest count.
+        :raises RuntimeError: If initialInterestCount is less than 1.
+        """
+        if initialInterestCount < 1:
+            raise RuntimeError("The initial Interest count must be at least 1")
+        self._initialInterestCount = initialInterestCount
+
+    def _onNamespaceSet(self):
+        self.namespace.addOnObjectNeeded(self._onObjectNeeded)
+        self.namespace.addOnStateChanged(self._onStateChanged)
+
+    def _onObjectNeeded(self, namespace, neededNamespace, id):
         """
         Start fetching segment Data packets and adding them as children of
         getNamespace(), calling any onSegment callbacks in order as the
         segments are received. Even though the segments supplied to onSegment
         are in order, note that children of the Namespace node are not
         necessarily added in order.
-
-        :param int interestCount: (optional) The number of initial Interests to
-          send for segments. By default this just sends an Interest for the
-          first segment and waits for the response before fetching more
-          segments, but if you know the number of segments you can reduce
-          latency by initially requesting more segments. (However, you should
-          not use a number larger than the Interest pipeline size.) If omitted,
-          use 1.
         """
-        self._requestNewSegments(interestCount)
+        if namespace != neededNamespace:
+            return False
+
+        self._requestNewSegments(self._initialInterestCount)
+        return True
 
     @staticmethod
     def debugGetRightmostLeaf(namespace):
@@ -145,13 +157,11 @@ class SegmentStream(object):
             result = result[childComponents[-1]]
 
     def _onStateChanged(self, namespace, changedNamespace, state, callbackId):
-        if not (len(changedNamespace.name) >= len(self._namespace.name) + 1 and
+        if not (len(changedNamespace.name) >= len(namespace.name) + 1 and
                 state == NamespaceState.OBJECT_READY and
-                changedNamespace.name[len(self._namespace.name)].isSegment()):
+                changedNamespace.name[len(namespace.name)].isSegment()):
             # Not a segment, ignore.
             return
-
-        # TODO: Use the Namspace mechanism to validate the Data packet.
 
         metaInfo = changedNamespace.data.metaInfo
         if (metaInfo.getFinalBlockId().getValue().size() > 0 and
@@ -162,7 +172,7 @@ class SegmentStream(object):
         while True:
             nextSegmentNumber = self._maxRetrievedSegmentNumber + 1
             nextSegment = self.debugGetRightmostLeaf(
-              self._namespace[Name.Component.fromSegment(nextSegmentNumber)])
+              namespace[Name.Component.fromSegment(nextSegmentNumber)])
             if nextSegment.getObject() == None:
                 break
 
@@ -181,7 +191,7 @@ class SegmentStream(object):
         if maxRequestedSegments < 1:
             maxRequestedSegments = 1
 
-        childComponents = self._namespace.getChildComponents()
+        childComponents = self.namespace.getChildComponents()
         # First, count how many are already requested and not received.
         nRequestedSegments = 0
         for component in childComponents:
@@ -189,7 +199,7 @@ class SegmentStream(object):
                 # The namespace contains a child other than a segment. Ignore.
                 continue
 
-            child = self._namespace[component]
+            child = self.namespace[component]
             # Debug: Check the leaf for content, but use the immediate child to
             # check if the Interest was expressed.
             if (self.debugGetRightmostLeaf(child).data == None and
@@ -207,7 +217,7 @@ class SegmentStream(object):
                 segmentNumber > self._finalSegmentNumber):
                 break
 
-            segment = self._namespace[Name.Component.fromSegment(segmentNumber)]
+            segment = self.namespace[Name.Component.fromSegment(segmentNumber)]
             if (self.debugGetRightmostLeaf(segment).data != None or
                 segment.state >= NamespaceState.INTEREST_EXPRESSED):
                 # Already got the data packet or already requested.
@@ -226,5 +236,5 @@ class SegmentStream(object):
                 except:
                     logging.exception("Error in onSegment")
 
-    namespace = property(getNamespace)
     interestPipelineSize = property(getInterestPipelineSize, setInterestPipelineSize)
+    initialInterestCount = property(getInitialInterestCount, setInitialInterestCount)

@@ -17,16 +17,18 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 # A copy of the GNU Lesser General Public License is in the file COPYING.
 
-from pycnl import nac_consumer_handler, namespace, segment_stream, segmented_content
-__all__ = ['nac_consumer_handler', 'namespace', 'segment_stream', 'segmented_content']
+from pycnl import nac_consumer_handler, namespace, segment_stream_handler
+from pycnl import segmented_object_handler
+__all__ = ['nac_consumer_handler', 'namespace', 'segment_stream_handler',
+           'segmented_object_handler']
 
 import sys as _sys
 
 try:
     from pycnl.nac_consumer_handler import *
     from pycnl.namespace import *
-    from pycnl.segment_stream import *
-    from pycnl.segmented_content import *
+    from pycnl.segment_stream_handler import *
+    from pycnl.segmented_object_handler import *
 except ImportError:
     del _sys.modules[__name__]
     raise
