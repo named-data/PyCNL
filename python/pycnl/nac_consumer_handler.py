@@ -24,9 +24,11 @@ Namespace node.
 """
 
 import logging
+from pyndn import Data
 from pyndn.encrypt import Consumer
+from pycnl.namespace import Namespace, NamespaceState
 
-class NacConsumerHandler(object):
+class NacConsumerHandler(Namespace.Handler):
     """
     Create a NacConsumerHandler object to attach to the given Namespace. This
     holds an internal NAC Consumer with the given values. This uses the Face
@@ -43,13 +45,12 @@ class NacConsumerHandler(object):
       keys.
     """
     def __init__(self, namespace, keyChain, groupName, consumerName, database):
+        super(NacConsumerHandler, self).__init__()
+
         # TODO: What is the right way to get access to the Face?
         face = namespace._getFace()
         self._consumer = Consumer(
           face, keyChain, groupName, consumerName, database)
-
-        # TODO: Use a way to set the callback which is better than setting the member.
-        namespace._transformContent = self._transformContent
 
     def addDecryptionKey(self, keyName, keyBlob):
         """
@@ -64,27 +65,14 @@ class NacConsumerHandler(object):
         """
         self._consumer.addDecryptionKey(keyName, keyBlob)
 
-    def _transformContent(self, data, onContentTransformed):
-        """
-        This is the TransformContent callback to use the Consumer to decrypt
-        data and call onContentTransformed as described below.
-
-        :param Data data: The Data packet with the content to decrypt.
-        :param onContentTransformed: This calls
-          onContentTransformed(plainText) where plainText is the decrypted
-          content Blob.
-        :type onContentTransformed: function object
-        """
-        # TODO: Use Namespace mechanisms to verify the Data packet.
-
-        def onPlainText(plainText):
-            try:
-                onContentTransformed(plainText)
-            except:
-                logging.exception("Error in onContentTransformed")
-        # TODO: TransformContent should take an OnError to use here.
+    def _canDeserialize(self, objectNamespace, blob, onDeserialized):
+        # TODO: Should have a way to report the error.
         def onError(code, message):
             logging.getLogger(__name__).error(
               "consume error " + repr(code) + ": " + message)
         # TODO: Update the Consumer class so we don't call a private method.
-        self._consumer._decryptContent(data, onPlainText, onError)
+        tempData = Data()
+        tempData.content = blob
+        self._consumer._decryptContent(tempData, onDeserialized, onError)
+
+        return True
