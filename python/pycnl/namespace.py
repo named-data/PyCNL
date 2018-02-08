@@ -56,14 +56,55 @@ class Namespace(object):
         self._object = None
         self._face = None
         self._keyChain = keyChain
+        self._handler = None
         # The dictionary key is the callback ID. The value is the onStateChanged function.
         self._onStateChangedCallbacks = {}
         # The dictionary key is the callback ID. The value is the onValidateStateChanged function.
         self._onValidateStateChangedCallbacks = {}
         self._onObjectNeededCallbacks = {}
-        self._transformContent = None
         # setFace will create this in the root Namespace node.
         self._pendingIncomingInterestTable = None
+
+    class Handler(object):
+        def __init__(self):
+            self._namespace = None
+
+        def getNamespace(self):
+            """
+            Get the Namespace that this Handler is attached to.
+
+            :return: This Handler's Namespace.
+            :rtype: Namespace
+            """
+            return self._namespace
+
+        def _canDeserialize(self, objectNamespace, blob, onDeserialized):
+            """
+            Check if this Handler can deserialize the blob in order to set the
+            object for the objectNamespace. This base implementation just
+            returns False. The subclass can override.
+
+            :param Namespace objectNamespace: The Namespace node which needs its
+              object deserialized.
+            :param Blob blob: The serialized bytes to deserialize.
+            :param onDeserialized: If the Handler can deserialize, it should
+              return True and eventually call onDeserialized(obj) with the
+              deserialized object.
+            :type onDeserialized: function object
+            :return: True if this Handler can deserialize and will call
+              onDeserialized, otherwise False.
+            """
+            return False
+
+        def _onNamespaceSet(self):
+            """
+            This protected method is called after this handler's Namespace field
+            is set by attaching it. A subclass can override to perform actions
+            with getNamespace() such as adding callbacks to the Namespace.
+            """
+            pass
+
+        namespace = property(getNamespace)
 
     def getName(self):
         """
@@ -362,6 +403,28 @@ class Namespace(object):
         return callbackId
 
     def addOnObjectNeeded(self, onObjectNeeded):
+        """
+        Add an onObjectNeeded callback. The objectNeeded() method calls all the
+        onObjectNeeded callback on that Namespace node and all the parents, as
+        described below.
+
+        :param onObjectNeeded: This calls
+          onObjectNeeded(namespace, neededNamespace, callbackId)
+          where namespace is this Namespace, neededNamespace is the Namespace
+          (possibly a child) whose objectNeeded was called, and callbackId
+          is the callback ID returned by this method. If the owner of the
+          callback (the application or a Handler) can produce the object for
+          the neededNamespace, then the callback should return True and the
+          owner should produce the object (either during the callback or at a
+          later time) and call neededNamespace.setObject(). If the owner cannot
+          produce the object then the callback should return False.
+          NOTE: The library will log any exceptions raised by this callback, but
+          for better error handling the callback should catch and properly
+          handle any exceptions.
+        :type onObjectNeeded: function object
+        :return: The callback ID which you can use in removeCallback().
+        :rtype: int
+        """
         callbackId = Namespace.getNextCallbackId()
         self._onObjectNeededCallbacks[callbackId] = onObjectNeeded
         return callbackId
@@ -428,6 +491,20 @@ class Namespace(object):
         """
         self._keyChain = keyChain
 
+    def setHandler(self, handler):
+        if self._handler != None:
+            # TODO: Should we try to chain handlers?
+            raise ValueError("This Namespace node already has a handler")
+
+        if handler._namespace != None:
+            # TODO: Should we allow attaching to multiple Namespace nodes?
+            raise ValueError("The handler is already attached to a Namespace node")
+
+        handler._namespace = self
+        handler._onNamespaceSet()
+        self._handler = handler
+        return self
+
     def objectNeeded(self):
         # Debug: Check if we already have the object. (But maybe not the _data?)
 
@@ -471,7 +548,7 @@ class Namespace(object):
         """
         face = self._getFace()
         if face == None:
-            raise ValueError("A Face object has not been set for this or a parent.")
+            raise RuntimeError("A Face object has not been set for this or a parent.")
 
         # TODO: What if the state is already INTEREST_EXPRESSED?
         self._setState(NamespaceState.INTEREST_EXPRESSED)
@@ -484,13 +561,17 @@ class Namespace(object):
             # TODO: Start the validator.
             dataNamespace._setValidateState(NamespaceValidateState.VALIDATING)
 
-            transformContent = dataNamespace._getTransformContent()
-            # TODO: TransformContent should take an OnError.
-            if transformContent != None:
-                transformContent(data, dataNamespace._onContentTransformed)
-            else:
-                # Otherwise just invoke directly.
-                dataNamespace._onContentTransformed(data.getContent())
+            # TODO: Decrypt.
+
+            if dataNamespace._deserialize(data.content):
+                # Wait for the Handler to set the object.
+                dataNamespace._setState(NamespaceState.DESERIALIZING)
+                return
+
+            # Debug: Check if the object has been set (even if canDeserialize returned False.
+
+            # Call the default onDeserialized immediately.
+            dataNamespace._onDeserialized(data.content)
 
         def onTimeout(interest):
             # TODO: Need to detect a timeout on a child node.
@@ -540,21 +621,40 @@ class Namespace(object):
 
         return None
 
-    def _getTransformContent(self):
+    def _getHandler(self):
         """
-        Get the TransformContent callback on this or a parent Namespace node.
+        Get the Handler set by setHandler on this or a parent Namespace node.
 
-        :return: The TransformContent callback, or None if not set on this or
-          any parent.
-        :rtype: function object
+        :return: The Handler, or None if not set on this or any parent.
+        :rtype: Namespace.Handler
         """
         namespace = self
         while namespace != None:
-            if namespace._transformContent != None:
-                return namespace._transformContent
+            if namespace._handler != None:
+                return namespace._handler
             namespace = namespace._parent
 
         return None
+
+    def _deserialize(self, blob):
+        """
+        Call _canDeserialize on the Handler of this or a parent Namespace node
+        until one returns True.
+
+        :param Blob blob: The blob to deserialize.
+        :return: True if a Handler _canDeserialize returned True, otherwise False.
+        :rtype: bool
+        """
+        namespace = self
+        while namespace != None:
+            if namespace._handler != None:
+                if namespace._handler._canDeserialize(
+                      self, blob, self._onDeserialized):
+                    return True
+
+            namespace = namespace._parent
+
+        return False
 
     def __getitem__(self, key):
         """
@@ -660,14 +760,13 @@ class Namespace(object):
 
         return canProduce
 
-    def _onContentTransformed(self, obj):
+    def _onDeserialized(self, obj):
         """
         Set _object to the given value, set the state to
         NamespaceState.OBJECT_READY, and fire the OnStateChanged callbacks.
-        This may be called from a _transformContent handler.
+        This may be called from _canDeserialize in a handler.
 
-        :param obj: The object which may have been processed from the
-          Data packet, e.g. by decrypting.
+        :param obj: The deserialized object.
         :type obj: Blob or other type as determined by the attached handler
         """
         self._object = obj
@@ -775,15 +874,17 @@ class NamespaceState(object):
     INTEREST_TIMEOUT =        2
     INTEREST_NETWORK_NACK =   3
     DATA_RECEIVED =           4
-    DECRYPTING =              5
-    DECRYPTION_ERROR =        6
-    PRODUCING_OBJECT =        7
-    ENCRYPTING =              8
-    ENCRYPTION_ERROR =        9
-    SIGNING =                10
-    SIGNING_ERROR =          11
-    OBJECT_READY =           12
-    OBJECT_READY_BUT_STALE = 13
+    DESERIALIZING =           5
+    DECRYPTING =              6
+    DECRYPTION_ERROR =        7
+    PRODUCING_OBJECT =        8
+    SERIALIZING =             9
+    ENCRYPTING =             10
+    ENCRYPTION_ERROR =       11
+    SIGNING =                12
+    SIGNING_ERROR =          13
+    OBJECT_READY =           14
+    OBJECT_READY_BUT_STALE = 15
 
 class NamespaceValidateState(object):
     """
