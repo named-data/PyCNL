@@ -31,8 +31,8 @@ from pyndn.security import KeyChain
 from pyndn.security.pib.pib_memory import PibMemory
 from pyndn.security.tpm.tpm_back_end_memory import TpmBackEndMemory
 from pyndn.security.policy import SelfVerifyPolicyManager
-from pycnl import Namespace, NamespaceState, NacConsumerHandler
-from pycnl import SegmentedContent
+from pycnl import Namespace, NacConsumerHandler
+from pycnl import SegmentedObjectHandler
 
 DEFAULT_RSA_PUBLIC_KEY_DER = bytearray([
     0x30, 0x82, 0x01, 0x22, 0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01,
@@ -186,13 +186,10 @@ def main():
     handler.addDecryptionKey(userKeyName, fixtureUserDKeyBlob)
 
     enabled = [True]
-    def onStateChanged(namespace, changedNamespace, state, callbackId):
-        if (changedNamespace == namespace and
-            state == NamespaceState.OBJECT_READY):
-            dump("Got segmented content", changedNamespace.getObject().toRawStr())
-            enabled[0] = False
-    namespace.addOnStateChanged(onStateChanged)
-    SegmentedContent(namespace).start()
+    def onSegmentedObject(handler, obj):
+        dump("Got segmented content", obj.toRawStr())
+        enabled[0] = False
+    namespace.setHandler(SegmentedObjectHandler(onSegmentedObject)).objectNeeded()
 
     while enabled[0]:
         face.processEvents()
