@@ -47,10 +47,23 @@ class NacConsumerHandler(Namespace.Handler):
     def __init__(self, namespace, keyChain, groupName, consumerName, database):
         super(NacConsumerHandler, self).__init__()
 
+        if namespace == None:
+            # This is being called as a private constructor.
+            return
+
         # TODO: What is the right way to get access to the Face?
         face = namespace._getFace()
         self._consumer = Consumer(
           face, keyChain, groupName, consumerName, database)
+
+        def onStateChanged(namespace, changedNamespace, state, callbackId):
+            if (state == NamespaceState.NAME_EXISTS and
+                  len(changedNamespace.name) == len(namespace.name) + 1):
+                # Attach a NacConsumerHandler with the same _consumer.
+                childHandler = NacConsumerHandler(None, None, None, None, None)
+                childHandler._consumer = self._consumer
+                changedNamespace.setHandler(childHandler)
+        namespace.addOnStateChanged(onStateChanged)
 
     def addDecryptionKey(self, keyName, keyBlob):
         """
