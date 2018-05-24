@@ -32,7 +32,8 @@ def dump(*list):
     print(result)
 
 def main():
-    face = Face("memoria.ndn.ucla.edu")
+    # Connect to the demo host at memoria.ndn.ucla.edu .
+    face = Face("128.97.98.8")
     page = Namespace("/ndn/edu/ucla/remap/demo/ndn-js-test/named-data.net/project/ndn-ar2011.html/%FDX%DC5B")
     page.setFace(face)
 
