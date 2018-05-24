@@ -800,7 +800,7 @@ class Namespace(object):
             bestMatch = Namespace._findBestMatchName(self[interestName], interest)
             if bestMatch != None:
                 # _findBestMatchName makes sure there is a _data packet.
-                face.putData(self[bestMatch]._data)
+                face.putData(bestMatch._data)
                 return
 
         # No Data packet found, so save the pending Interest.
@@ -816,8 +816,8 @@ class Namespace(object):
 
         :param Namespace namespace: This searches this Namespace and its children.
         :param Interest interest: This calls interest.matchesData().
-        :return: The matched Name of None if not found.
-        :rtype: Name
+        :return: The Namespace object for the matched name of None if not found.
+        :rtype: Namespace
         """
         bestMatch = None
         # Search the children backwards which will result in a "less than" name
@@ -827,7 +827,8 @@ class Namespace(object):
             childBestMatch = Namespace._findBestMatchName(child, interest)
 
             if (childBestMatch != None and
-                (bestMatch == None or childBestMatch.size() >= bestMatch.size())):
+                (bestMatch == None or
+                 childBestMatch.name.size() >= bestMatch.name.size())):
                 bestMatch = childBestMatch
 
         if bestMatch != None:
@@ -835,7 +836,7 @@ class Namespace(object):
             return bestMatch
 
         if namespace._data != None and interest.matchesData(namespace._data):
-            return namespace._name
+            return namespace
 
         return None
 
