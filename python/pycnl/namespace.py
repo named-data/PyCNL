@@ -834,7 +834,6 @@ class Namespace(object):
             # We have a child match, and it is longer than this name, so return it.
             return bestMatch
 
-        # TODO: Check childSelector.
         if namespace._data != None and interest.matchesData(namespace._data):
             return namespace._name
 
