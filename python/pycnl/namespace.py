@@ -64,6 +64,7 @@ class Namespace(object):
         self._onObjectNeededCallbacks = {}
         # setFace will create this in the root Namespace node.
         self._pendingIncomingInterestTable = None
+        self._maxInterestLifetime = None
 
     class Handler(object):
         def __init__(self):
@@ -526,13 +527,26 @@ class Namespace(object):
         # Debug: Need an Interest template?
         self.expressInterest()
 
+    def setMaxInterestLifetime(self, maxInterestLifetime):
+        """
+        Set the maximum lifetime for re-expressed interests to be used when this
+        or a child node calls expressInterest. You can call this on a child node
+        to set a different maximum lifetime. If you don't set this, the default
+        is 16000 milliseconds.
+
+        :param float maxInterestLifetime: The maximum lifetime in
+          milliseconds.
+        """
+        self._maxInterestLifetime = maxInterestLifetime
+
     def expressInterest(self, interestTemplate = None):
         """
         Call expressInterest on this (or a parent's) Face where the interest
         name is the name of this Namespace node. When the Data packet is
         received this calls setData, so you should use a callback with
         addOnStateChanged. This uses ExponentialReExpress to re-express a
-        timed-out interest with longer lifetimes. If the Interest times out,
+        timed-out interest with longer lifetimes, with a maximum determined by
+        setMaxInterestLifetime(). If the Interest times out,
         this sets the state to NamespaceState.INTEREST_TIMEOUT and calls the
         OnStateChanged callbacks. If this receives a network Nack, this stores
         the NetworkNack object which you can access with getNetworkNack(), sets
@@ -587,7 +601,8 @@ class Namespace(object):
             interestTemplate.setInterestLifetimeMilliseconds(4000)
         face.expressInterest(
           self._name, interestTemplate, onData,
-          ExponentialReExpress.makeOnTimeout(face, onData, onTimeout),
+          ExponentialReExpress.makeOnTimeout(
+            face, onData, onTimeout, self._getMaxInterestLifetime()),
           onNetworkNack)
 
     def _getFace(self):
@@ -635,6 +650,23 @@ class Namespace(object):
             namespace = namespace._parent
 
         return None
+
+    def _getMaxInterestLifetime(self):
+        """
+        Get the maximum Interest lifetime that was set on this or a parent node.
+
+        :return: The  maximum Interest lifetime, or the default if not set on
+          this or any parent.
+        :rtype: float
+        """
+        namespace = self
+        while namespace != None:
+            if namespace._maxInterestLifetime != None:
+                return namespace._maxInterestLifetime
+            namespace = namespace._parent
+
+        # Return the default.
+        return 16000.0
 
     def _deserialize(self, blob):
         """
