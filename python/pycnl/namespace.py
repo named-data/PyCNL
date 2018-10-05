@@ -42,7 +42,9 @@ class Namespace(object):
           if needed. You can also call setKeyChain().
         """
         self._name = Name(name)
+        # _parent and _root may be updated by _createChild.
         self._parent = None
+        self._root = self
         # The dictionary key is a Name.Component. The value is the child Namespace.
         self._children = {}
         # The keys of _children in sorted order, kept in sync with _children.
@@ -135,10 +137,7 @@ class Namespace(object):
         :return: The root namespace.
         :rtype: Namespace
         """
-        result = self
-        while result._parent:
-            result = result._parent
-        return result
+        return self._root
 
     def getState(self):
         """
@@ -307,10 +306,9 @@ class Namespace(object):
             raise RuntimeError(
               "The Data packet name does not equal the name of this Namespace node.")
 
-        root = self.getRoot()
-        if root._pendingIncomingInterestTable != None:
+        if self._root._pendingIncomingInterestTable != None:
             # Quickly send the Data packet to satisfy interest, before calling callbacks.
-            root._pendingIncomingInterestTable.satisfyInterests(data)
+            self._root._pendingIncomingInterestTable.satisfyInterests(data)
 
         self._data = data
         self._setState(NamespaceState.DATA_RECEIVED)
@@ -473,12 +471,11 @@ class Namespace(object):
         self._face = face
 
         if onRegisterFailed != None:
-            root = self.getRoot()
-            if root._pendingIncomingInterestTable == None:
+            if self._root._pendingIncomingInterestTable == None:
                 # All _onInterest callbacks share this in the root node.
                 # When we add a new data packet to a Namespace node, we will
                 # also check if it satisfies a pending interest.
-                root._pendingIncomingInterestTable = PendingIncomingInterestTable()
+                self._root._pendingIncomingInterestTable = PendingIncomingInterestTable()
 
             face.registerPrefix(
               self._name, self._onInterest, onRegisterFailed, onRegisterSuccess)
@@ -713,6 +710,7 @@ class Namespace(object):
         """
         child = Namespace(Name(self._name).append(component))
         child._parent = self
+        child._root = self._root
         self._children[component] = child
 
         # Keep _sortedChildrenKeys synced with _children.
@@ -836,7 +834,7 @@ class Namespace(object):
                 return
 
         # No Data packet found, so save the pending Interest.
-        self.getRoot()._pendingIncomingInterestTable.add(interest, face)
+        self._root._pendingIncomingInterestTable.add(interest, face)
         # Signal that a Data packet is needed.
         self.getChild(interestName).objectNeeded()
 
@@ -888,6 +886,7 @@ class Namespace(object):
 
     name = property(getName)
     parent = property(getParent)
+    root = property(getRoot)
     state = property(getState)
     validateState = property(getValidateState)
     data = property(getData)
