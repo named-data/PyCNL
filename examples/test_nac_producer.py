@@ -25,34 +25,12 @@ test_nac_consumer (which must be run separately).
 import time
 from pyndn import Name, Data, Face
 from pyndn.util import Blob
-from pyndn.encrypt.algo import EncryptParams, EncryptAlgorithmType
-from pyndn.encrypt.algo import Encryptor, RsaAlgorithm
 from pyndn.security import KeyChain, RsaKeyParams, SafeBag
-from pycnl import Namespace, NamespaceState
-
-DATA0_CONTENT = bytearray([
-    # "This test message was decrypted"
-    0x54, 0x68, 0x69, 0x73, 0x20, 0x74, 0x65, 0x73,
-    0x74, 0x20, 0x6d, 0x65, 0x73, 0x73, 0x61, 0x67,
-    0x65, 0x20, 0x77, 0x61, 0x73, 0x20, 0x64, 0x65,
-    0x63, 0x72, 0x79, 0x70, 0x74, 0x65, 0x64
-])
-
-DATA1_CONTENT = bytearray([
-    # " from segments."
-    0x20, 0x66, 0x72, 0x6f, 0x6d, 0x20, 0x73, 0x65,
-    0x67, 0x6d, 0x65, 0x6e, 0x74, 0x73, 0x2e
-])
-
-AES_KEY = bytearray([
-    0xdd, 0x60, 0x77, 0xec, 0xa9, 0x6b, 0x23, 0x1b,
-    0x40, 0x6b, 0x5a, 0xf8, 0x7d, 0x3d, 0x55, 0x32
-])
-
-INITIAL_VECTOR = bytearray([
-    0x73, 0x6f, 0x6d, 0x65, 0x72, 0x61, 0x6e, 0x64,
-    0x6f, 0x6d, 0x76, 0x65, 0x63, 0x74, 0x6f, 0x72
-])
+from pyndn.security import SigningInfo, ValidatorNull
+from pyndn.security.v2 import CertificateV2
+from pyndn.encrypt.access_manager_v2 import AccessManagerV2 # Debug: Should import without access_manager_v2
+from pyndn.encrypt.encryptor_v2 import EncryptorV2 # Debug: Should import without encryptor_v2
+from pycnl import Namespace
 
 DEFAULT_RSA_PUBLIC_KEY_DER = bytearray([
     0x30, 0x82, 0x01, 0x22, 0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01,
@@ -157,8 +135,8 @@ DEFAULT_RSA_PRIVATE_KEY_DER = bytearray([
     0xcb, 0xea, 0x8f
   ])
 
-# This matches FIXTURE_USER_D_KEY in test_nac_consumer.
-FIXTURE_USER_E_KEY = bytearray([
+# This matches MEMBER_PRIVATE_KEY in test_nac_consumer.
+MEMBER_PUBLIC_KEY = bytearray([
     0x30, 0x82, 0x01, 0x22, 0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01,
     0x01, 0x05, 0x00, 0x03, 0x82, 0x01, 0x0f, 0x00, 0x30, 0x82, 0x01, 0x0a, 0x02, 0x82, 0x01, 0x01,
     0x00, 0xd2, 0x1c, 0x8d, 0x80, 0x78, 0xcc, 0x92, 0xb7, 0x6e, 0xfd, 0x28, 0xdc, 0xb4, 0xa7, 0x81,
@@ -186,76 +164,60 @@ def dump(*list):
         result += (element if type(element) is str else str(element)) + " "
     print(result)
 
-def createKeyChain():
+def prepareData(ckPrefix, keyChain, face, accessManagerFace):
     """
-    Create an in-memory KeyChain with default keys.
+    Create the encrypted CK Data and KDK, and add to the Namespace object.
+    For the meaning of "CK data", etc. see:
+    https://github.com/named-data/name-based-access-control/blob/new/docs/spec.rst
 
-    :return: The new KeyChain.
-    :rtype: KeyChain
-    """
-    keyChain = KeyChain("pib-memory:", "tpm-memory:")
-    keyChain.importSafeBag(SafeBag
-      (Name("/testname/KEY/123"),
-       Blob(DEFAULT_RSA_PRIVATE_KEY_DER, False),
-       Blob(DEFAULT_RSA_PUBLIC_KEY_DER, False)))
-
-    return keyChain
-
-def prepareData(namespace, userKeyName, cKeyName, keyChain):
-    """
-    Create the encrypted C-KEY and D-KEY, and add to the Namespace object.
-
-    :return: The C-KEY for encrypting the content.
+    :return: The CK for encrypting the content.
     :rtype: Blob
     """
-    # Imitate test_consumer from the PyNDN integration tests.
-    dKeyName = Name("/Prefix/READ/D-KEY/1/2")
+    # Imitate TestEncryptorV2 and TestAccessManagerV2 from the integration tests.
+    accessIdentity = keyChain.createIdentityV2(
+      Name("/access/policy/identity"), RsaKeyParams())
+    # This matches memberKeyName in test_nac_consumer.
+    memberKeyName = Name("/first/user/KEY/%0C%87%EB%E6U%27B%D6")
 
-    # Generate the E-KEY and D-KEY.
-    params = RsaKeyParams()
-    fixtureDKeyBlob = RsaAlgorithm.generateKey(params).getKeyBits()
-    fixtureEKeyBlob = RsaAlgorithm.deriveEncryptKey(
-      fixtureDKeyBlob).getKeyBits()
+    # The member certificate only needs to have a name and public key.
+    memberCertificate = CertificateV2()
+    memberCertificate.setName(Name(memberKeyName).append("self").append("1"))
+    memberCertificate.setContent(Blob(MEMBER_PUBLIC_KEY, False))
 
-    # The user key.
-    fixtureUserEKeyBlob = Blob(FIXTURE_USER_E_KEY)
+    dataset = Name("/dataset")
+    accessManager = AccessManagerV2(accessIdentity, dataset, keyChain, accessManagerFace)
+    accessManager.addMember(memberCertificate)
+    
+    def onError(code, message):
+      print("onError: " + message)
+    # TODO: Sign with better than SHA256?
+    encryptor = EncryptorV2(
+      Name(accessIdentity.getName()).append("NAC").append(dataset),
+      ckPrefix, SigningInfo(SigningInfo.SignerType.SHA256),
+      onError, ValidatorNull(), keyChain, face)
 
-    # Load the C-KEY.
-    fixtureCKeyBlob = Blob(AES_KEY, False)
-
-    # Imitate createEncryptedCKey.
-    cKeyData = Data(cKeyName)
-    encryptParams = EncryptParams(EncryptAlgorithmType.RsaOaep)
-    Encryptor.encryptData(
-      cKeyData, fixtureCKeyBlob, dKeyName, fixtureEKeyBlob,
-      encryptParams)
-    keyChain.sign(cKeyData)
-    namespace[cKeyData.getName()].setData(cKeyData)
-
-    # Imitate createEncryptedDKey.
-    dKeyData = Data(dKeyName)
-    encryptParams = EncryptParams(EncryptAlgorithmType.RsaOaep)
-    Encryptor.encryptData(
-      dKeyData, fixtureDKeyBlob, userKeyName, fixtureUserEKeyBlob,
-      encryptParams)
-    keyChain.sign(dKeyData)
-    namespace[dKeyData.getName()].setData(dKeyData)
-
-    return fixtureCKeyBlob
+    return encryptor
 
 def main():
     # The default Face will connect using a Unix socket, or to "localhost".
     face = Face()
 
-    keyChain = createKeyChain()
+    # Create an in-memory key chain with default keys.
+    keyChain = KeyChain("pib-memory:", "tpm-memory:")
+    keyChain.importSafeBag(SafeBag
+      (Name("/testname/KEY/123"),
+       Blob(DEFAULT_RSA_PRIVATE_KEY_DER, False),
+       Blob(DEFAULT_RSA_PUBLIC_KEY_DER, False)))
     face.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName())
 
-    userKeyName = Name("/U/Key")
-    prefix = Namespace("/Prefix", keyChain)
-    contentPrefix = Name(prefix.getName()).append("SAMPLE").append("Content")
-    cKeyName = Name(contentPrefix).append("C-KEY").append("1")
+    contentPrefix = Name("/testname/content")
+    contentNamespace = Namespace(contentPrefix, keyChain)
 
-    cKeyBlob = prepareData(prefix, userKeyName, cKeyName, keyChain)
+    ckPrefix = Name("/some/ck/prefix")
+    # Use a different Face so it can communicate with the primary Face.
+    accessManagerFace = Face()
+    accessManagerFace.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName())
+    encryptor = prepareData(ckPrefix, keyChain, face, accessManagerFace)
 
     # Make the callback to produce a Data packet for a content segment.
     def onObjectNeeded(namespace, neededNamespace, id):
@@ -271,31 +233,30 @@ def main():
             # An invalid segment was requested.
             return False
 
-        # Make the Data packet for the segment. Imitate createEncryptedContent.
-        segmentContent = DATA0_CONTENT if segment == 0 else DATA1_CONTENT
-        encryptParams = EncryptParams(EncryptAlgorithmType.AesCbc)
-        encryptParams.setInitialVector(Blob(INITIAL_VECTOR, False))
+        # Make the Data packet for the segment.
         data = Data(Name(contentPrefix).appendSegment(segment))
-        Encryptor.encryptData(
-          data, Blob(segmentContent, False), cKeyName, cKeyBlob,
-          encryptParams)
+        segmentContent = ("This test message was decrypted" if segment == 0
+                          else " from segments.")
+        data.setContent(
+          encryptor.encrypt(Blob(segmentContent)).wireEncodeV2())
         data.getMetaInfo().setFinalBlockId(Name().appendSegment(1)[0])
         keyChain.sign(data)
 
         # Now call setData which will answer the pending incoming Interest.
-        # Note that the encrypted name has extra child components for the C-KEY.
+        dump("Produced Data", data.name)
         neededNamespace[data.name].setData(data)
         return True
 
-    prefix.addOnObjectNeeded(onObjectNeeded)
+    contentNamespace.addOnObjectNeeded(onObjectNeeded)
 
-    dump("Register prefix", prefix.getName().toUri())
+    dump("Register prefix", contentNamespace.name)
     # Set the face and register to receive Interests.
-    prefix.setFace(face,
-      lambda prefixName: dump("Register failed for prefix", prefixName.toUri()))
+    contentNamespace.setFace(face,
+      lambda prefixName: dump("Register failed for prefix", prefixName))
 
     while True:
         face.processEvents()
+        accessManagerFace.processEvents()
         # We need to sleep for a few milliseconds so we don't use 100% of the CPU.
         time.sleep(0.01)
 
