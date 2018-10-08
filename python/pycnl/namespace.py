@@ -313,6 +313,10 @@ class Namespace(object):
         self._data = data
         self._setState(NamespaceState.DATA_RECEIVED)
 
+        # TODO: This is presumably called by the application in the producer
+        # pipeline (who may have already serialized and encrypted), but should
+        # we decrypt and deserialize?
+
     def getData(self):
         """
         Get the Data packet attached to this Namespace object. Note that
@@ -514,7 +518,7 @@ class Namespace(object):
                 canProduce = True
             namespace = namespace._parent
 
-        # Debug: Check if the object has been set (even if onObjectNeeded returned False.
+        # Debug: Check if the object has been set (even if onObjectNeeded returned False.)
 
         if canProduce:
             # Assume that the application will produce the object.
@@ -574,15 +578,7 @@ class Namespace(object):
 
             # TODO: Decrypt.
 
-            if dataNamespace._deserialize(data.content):
-                # Wait for the Handler to set the object.
-                dataNamespace._setState(NamespaceState.DESERIALIZING)
-                return
-
-            # Debug: Check if the object has been set (even if canDeserialize returned False.
-
-            # Call the default onDeserialized immediately.
-            dataNamespace._onDeserialized(data.content)
+            dataNamespace._deserialize(data.content)
 
         def onTimeout(interest):
             # TODO: Need to detect a timeout on a child node.
@@ -667,23 +663,28 @@ class Namespace(object):
 
     def _deserialize(self, blob):
         """
-        Call _canDeserialize on the Handler of this or a parent Namespace node
-        until one returns True.
+        If _canDeserialize on the Handler of this or a parent Namespace node
+        returns True, set the state to DESERIALIZING and wait for the Handler to
+        set the object. Otherwise, just all the default onDeserialized
+        immediately, which sets the state to OBJECT_READY.
 
         :param Blob blob: The blob to deserialize.
-        :return: True if a Handler _canDeserialize returned True, otherwise False.
-        :rtype: bool
         """
         namespace = self
         while namespace != None:
             if namespace._handler != None:
                 if namespace._handler._canDeserialize(
                       self, blob, self._onDeserialized):
-                    return True
+                    # Wait for the Handler to set the object.
+                    self._setState(NamespaceState.DESERIALIZING)
+                    return
 
             namespace = namespace._parent
 
-        return False
+        # Debug: Check if the object has been set (even if canDeserialize returned False.)
+
+        # Call the default onDeserialized immediately.
+        self._onDeserialized(blob)
 
     def __getitem__(self, key):
         """
