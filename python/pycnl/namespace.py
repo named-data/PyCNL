@@ -27,6 +27,7 @@ import threading
 import logging
 from pyndn import Name, Interest
 from pyndn.util import ExponentialReExpress
+from pyndn.encrypt import EncryptedContent
 from pycnl.impl.pending_incoming_interest_table import PendingIncomingInterestTable
 
 class Namespace(object):
@@ -58,6 +59,8 @@ class Namespace(object):
         self._object = None
         self._face = None
         self._keyChain = keyChain
+        self._decryptor = None
+        self._decryptionError = ""
         self._handler = None
         # The dictionary key is the callback ID. The value is the onStateChanged function.
         self._onStateChangedCallbacks = {}
@@ -179,6 +182,17 @@ class Namespace(object):
         :rtype: ValidationError
         """
         return self._validationError
+
+    def getDecryptionError(self):
+        """
+        Get the decryption error for when the state is set to
+        NamespaceValidateState.DECRYPTION_ERROR .
+
+        :return: The decryption error, or "" if it hasn't been set due to a
+          DECRYPTION_ERROR.
+        :rtype: str
+        """
+        return self._decryptionError
 
     def hasChild(self, nameOrComponent):
         """
@@ -493,6 +507,16 @@ class Namespace(object):
         """
         self._keyChain = keyChain
 
+    def setDecryptor(self, decryptor):
+        """
+        Set the decryptor used to decrypt the EncryptedContent of a Data packet
+        at this or child nodes. If a decryptor already exists at this node, it
+        is replaced.
+
+        :param DecryptorV2 decryptor: The decryptor.
+        """
+        self._decryptor = decryptor
+
     def setHandler(self, handler):
         if self._handler != None:
             # TODO: Should we try to chain handlers?
@@ -576,9 +600,27 @@ class Namespace(object):
             # TODO: Start the validator.
             dataNamespace._setValidateState(NamespaceValidateState.VALIDATING)
 
-            # TODO: Decrypt.
+            decryptor = dataNamespace._getDecryptor()
+            if decryptor == None:
+                dataNamespace._deserialize(data.content)
+                return
 
-            dataNamespace._deserialize(data.content)
+            # Decrypt, then deserialize.
+            dataNamespace._setState(NamespaceState.DECRYPTING)
+            try:
+                encryptedContent = EncryptedContent()
+                encryptedContent.wireDecodeV2(data.content)
+            except Exception as ex:
+                dataNamespace._decryptionError = (
+                  "Error decoding the EncryptedContent: " + repr(ex))
+                dataNamespace._setState(NamespaceState.DECRYPTION_ERROR)
+                return
+
+            def onError(code, message):
+                dataNamespace._decryptionError = (
+                  "Decryptor error " + repr(code) + ": " + message)
+                dataNamespace._setState(NamespaceState.DECRYPTION_ERROR)
+            decryptor.decrypt(encryptedContent, dataNamespace._deserialize, onError)
 
         def onTimeout(interest):
             # TODO: Need to detect a timeout on a child node.
@@ -625,6 +667,21 @@ class Namespace(object):
         while namespace != None:
             if namespace._keyChain != None:
                 return namespace._keyChain
+            namespace = namespace._parent
+
+        return None
+
+    def _getDecryptor(self):
+        """
+        Get the decryptor set by setDecryptor on this or a parent Namespace node.
+
+        :return: The decryptor, or None if not set on this or any parent.
+        :rtype: DecryptorV2
+        """
+        namespace = self
+        while namespace != None:
+            if namespace._decryptor != None:
+                return namespace._decryptor
             namespace = namespace._parent
 
         return None
@@ -890,6 +947,8 @@ class Namespace(object):
     root = property(getRoot)
     state = property(getState)
     validateState = property(getValidateState)
+    validationError = property(getValidationError)
+    decryptionError = property(getDecryptionError)
     data = property(getData)
     # object is a special Python term, so use obj .
     obj = property(getObject)
