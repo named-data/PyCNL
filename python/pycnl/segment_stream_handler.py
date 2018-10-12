@@ -138,24 +138,6 @@ class SegmentStreamHandler(Namespace.Handler):
         self._requestNewSegments(self._initialInterestCount)
         return True
 
-    @staticmethod
-    def debugGetRightmostLeaf(namespace):
-        """
-        Get the rightmost leaf of the given namespace. Use this temporarily to
-        handle encrypted data packets where the name has the key name appended.
-
-        :param Namespace namespace: The Namespace with the leaf node.
-        :return: The leaf Namespace node.
-        :rtype: Namespace
-        """
-        result = namespace
-        while True:
-            childComponents = result.getChildComponents()
-            if len(childComponents) == 0:
-                return result
-
-            result = result[childComponents[-1]]
-
     def _onStateChanged(self, namespace, changedNamespace, state, callbackId):
         if not (len(changedNamespace.name) >= len(namespace.name) + 1 and
                 state == NamespaceState.OBJECT_READY and
@@ -171,8 +153,8 @@ class SegmentStreamHandler(Namespace.Handler):
         # Report as many segments as possible where the node already has content.
         while True:
             nextSegmentNumber = self._maxRetrievedSegmentNumber + 1
-            nextSegment = self.debugGetRightmostLeaf(
-              namespace[Name.Component.fromSegment(nextSegmentNumber)])
+            nextSegment = namespace[
+              Name.Component.fromSegment(nextSegmentNumber)]
             if nextSegment.getObject() == None:
                 break
 
@@ -200,9 +182,7 @@ class SegmentStreamHandler(Namespace.Handler):
                 continue
 
             child = self.namespace[component]
-            # Debug: Check the leaf for content, but use the immediate child to
-            # check if the Interest was expressed.
-            if (self.debugGetRightmostLeaf(child).data == None and
+            if (child.data == None and
                 child.state >= NamespaceState.INTEREST_EXPRESSED):
                 nRequestedSegments += 1
                 if nRequestedSegments >= maxRequestedSegments:
@@ -218,7 +198,7 @@ class SegmentStreamHandler(Namespace.Handler):
                 break
 
             segment = self.namespace[Name.Component.fromSegment(segmentNumber)]
-            if (self.debugGetRightmostLeaf(segment).data != None or
+            if (segment.data != None or
                 segment.state >= NamespaceState.INTEREST_EXPRESSED):
                 # Already got the data packet or already requested.
                 continue
