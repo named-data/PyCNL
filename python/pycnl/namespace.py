@@ -165,7 +165,8 @@ class Namespace(object):
     def getValidateState(self):
         """
         Get the validate state of this Namespace node. When a Namespace node is
-        first created, its state is NamespaceValidateState.WAITING_FOR_DATA .
+        first created, its validate state is
+        NamespaceValidateState.WAITING_FOR_DATA .
 
         :return: The validate state of this Namespace node.
         :rtype: An int from the NamespaceValidateState enum.
@@ -186,7 +187,7 @@ class Namespace(object):
     def getDecryptionError(self):
         """
         Get the decryption error for when the state is set to
-        NamespaceValidateState.DECRYPTION_ERROR .
+        NamespaceState.DECRYPTION_ERROR .
 
         :return: The decryption error, or "" if it hasn't been set due to a
           DECRYPTION_ERROR.
@@ -398,16 +399,17 @@ class Namespace(object):
         onValidateStateChanged as described below.
 
         :param onValidateStateChanged: This calls
-          onValidateStateChanged(namespace, changedNamespace, state, callbackId)
+          onValidateStateChanged(namespace, changedNamespace, validateState, callbackId)
           where namespace is this Namespace, changedNamespace is the Namespace
-          (possibly a child) whose validate state has changed, state is the new
-          state as an int from the NamespaceValidateState enum, and callbackId
-          is the callback ID returned by this method. If you only care if the
-          state has changed for this Namespace (and not any of its children)
-          then your callback can check "if changedNamespace == namespace". (Note
-          that the state given to the callback may be different than
+          (possibly a child) whose validate state has changed, validateState is
+          the new validate state as an int from the NamespaceValidateState enum,
+          and callbackId is the callback ID returned by this method. If you only
+          care if the validate state has changed for this Namespace (and not any
+          of its children) then your callback can check
+          "if changedNamespace == namespace". (Note that the validate state
+          given to the callback may be different than
           changedNamespace.getValidateState() if other processing has changed
-          the state before this callback is called.)
+          the validate state before this callback is called.)
           NOTE: The library will log any exceptions raised by this callback, but
           for better error handling the callback should catch and properly
           handle any exceptions.
@@ -783,7 +785,7 @@ class Namespace(object):
         """
         This is a private method to set the state of this Namespace object and
         to call the OnStateChanged callbacks for this and all parents. This does
-        not check if the state already has the given state.
+        not check if this Namespace object already has the given state.
 
         :param int state: The new state as an int from the NamespaceState enum.
         """
@@ -806,31 +808,32 @@ class Namespace(object):
                 except:
                     logging.exception("Error in onStateChanged")
 
-    def _setValidateState(self, state):
+    def _setValidateState(self, validateState):
         """
         This is a private method to set the validate state of this Namespace
         object and to call the OnValidateStateChanged callbacks for this and all
-        parents. This does not check if the state already has the given state.
+        parents. This does not check if this Namespace object already has the
+        given validate state.
 
-        :param int state: The new state as an int from the
+        :param int validateState: The new validate state as an int from the
           NamespaceValidateState enum.
         """
-        self._validateState = state
+        self._validateState = validateState
 
         # Fire callbacks.
         namespace = self
         while namespace != None:
-            namespace._fireOnValidateStateChanged(self, state)
+            namespace._fireOnValidateStateChanged(self, validateState)
             namespace = namespace._parent
 
-    def _fireOnValidateStateChanged(self, changedNamespace, state):
+    def _fireOnValidateStateChanged(self, changedNamespace, validateState):
         # Copy the keys before iterating since callbacks can change the list.
         for id in list(self._onValidateStateChangedCallbacks.keys()):
             # A callback on a previous pass may have removed this callback, so check.
             if id in self._onValidateStateChangedCallbacks:
                 try:
                     self._onValidateStateChangedCallbacks[id](
-                      self, changedNamespace, state, id)
+                      self, changedNamespace, validateState, id)
                 except:
                     logging.exception("Error in onValidateStateChanged")
 
