@@ -34,7 +34,7 @@ class SegmentedObjectHandler(SegmentStreamHandler):
         self._totalSize = 0
         self._onSegmentedObject = onSegmentedObject
 
-    def _onSegment(self, segmentStream, segmentNamespace, callbackId):
+    def _onSegment(self, segmentNamespace, callbackId):
         if self._segments == None:
             # We already finished and called onContent. (We don't expect this.)
             return
@@ -44,7 +44,7 @@ class SegmentedObjectHandler(SegmentStreamHandler):
             self._totalSize += segmentNamespace.getObject().size()
         else:
             # Finished. We don't need the callback anymore.
-            segmentStream.removeCallback(callbackId)
+            self.removeCallback(callbackId)
 
             # Concatenate the segments.
             content = bytearray(self._totalSize)

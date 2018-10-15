@@ -46,12 +46,12 @@ class SegmentStreamHandler(Namespace.Handler):
         onSegment as described below. Segments are supplied in order.
 
         :param onSegment: This calls
-          onSegment(segmentStream, segmentNamespace, callbackId)
-          where segmentStream is this SegmentStream, segmentNamespace is the Namespace
-          where you can use segmentNamespace.getObject(), and callbackId is the
-          callback ID returned by this method. You must check if
-          segmentNamespace is None because after supplying the final segment, this
-          calls onSegment(stream, None, callbackId) to signal the "end of stream".
+          onSegment(segmentNamespace, callbackId)
+          where segmentNamespace is the Namespace where you can use
+          segmentNamespace.getObject(), and callbackId is the callback ID
+          returned by this method. You must check if segmentNamespace is None
+          because after supplying the final segment, this calls
+          onSegment(stream, None, callbackId) to signal the "end of stream".
           NOTE: The library will log any exceptions raised by this callback, but
           for better error handling the callback should catch and properly
           handle any exceptions.
@@ -212,7 +212,7 @@ class SegmentStreamHandler(Namespace.Handler):
             # A callback on a previous pass may have removed this callback, so check.
             if id in self._onSegmentCallbacks.keys():
                 try:
-                    self._onSegmentCallbacks[id](self, segmentNamespace, id)
+                    self._onSegmentCallbacks[id](segmentNamespace, id)
                 except:
                     logging.exception("Error in onSegment")
 
