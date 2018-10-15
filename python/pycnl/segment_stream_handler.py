@@ -18,8 +18,8 @@
 # A copy of the GNU Lesser General Public License is in the file COPYING.
 
 """
-This module defines the SegmentStream class which attaches to a Namespace node
-to fetch and return child segment packets in order.
+This module defines the SegmentStreamHandler class which attaches to a Namespace
+node to fetch and return child segments in order.
 """
 
 import logging
@@ -27,6 +27,13 @@ from pyndn import Name
 from pycnl.namespace import Namespace, NamespaceState
 
 class SegmentStreamHandler(Namespace.Handler):
+    """
+    Create a SegmentStreamHandler with the optional onSegment callback.
+
+    :param onSegment: (optional) If not None, this calls addOnSegment(onSegment).
+      You may also call addOnSegment directly.
+    :type onSegment: function object
+    """
     def __init__(self, onSegment = None):
         super(SegmentStreamHandler, self).__init__()
 
@@ -34,7 +41,7 @@ class SegmentStreamHandler(Namespace.Handler):
         self._finalSegmentNumber = None
         self._interestPipelineSize = 8
         self._initialInterestCount = 1
-        # The dictionary key is the callback ID. The value is the onSegment function.
+        # The dictionary key is the callback ID. The value is the OnSegment function.
         self._onSegmentCallbacks = {}
 
         if onSegment != None:
@@ -46,12 +53,13 @@ class SegmentStreamHandler(Namespace.Handler):
         onSegment as described below. Segments are supplied in order.
 
         :param onSegment: This calls
-          onSegment(segmentNamespace, callbackId)
-          where segmentNamespace is the Namespace where you can use
-          segmentNamespace.getObject(), and callbackId is the callback ID
-          returned by this method. You must check if segmentNamespace is None
-          because after supplying the final segment, this calls
-          onSegment(stream, None, callbackId) to signal the "end of stream".
+          onSegment(handler, segmentNamespace, callbackId)
+          where handler is this SegmentStreamHandler, segmentNamespace is the
+          Namespace where you can use segmentNamespace.getObject(), and
+          callbackId is the callback ID returned by this method. You must check
+          if segmentNamespace is None because after supplying the final segment,
+          this calls onSegment(handler, None, callbackId) to signal the "end of
+          stream".
           NOTE: The library will log any exceptions raised by this callback, but
           for better error handling the callback should catch and properly
           handle any exceptions.
@@ -212,7 +220,7 @@ class SegmentStreamHandler(Namespace.Handler):
             # A callback on a previous pass may have removed this callback, so check.
             if id in self._onSegmentCallbacks.keys():
                 try:
-                    self._onSegmentCallbacks[id](segmentNamespace, id)
+                    self._onSegmentCallbacks[id](self, segmentNamespace, id)
                 except:
                     logging.exception("Error in onSegment")
 

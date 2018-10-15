@@ -19,7 +19,7 @@
 
 """
 This module defines the SegmentedObjectHandler class which assembles the
-contents of child segment packets into a single block of memory.
+contents of child segments into a single block of memory.
 """
 
 from pyndn.util import Blob
@@ -27,6 +27,17 @@ from pycnl.namespace import NamespaceState
 from pycnl.segment_stream_handler import SegmentStreamHandler
 
 class SegmentedObjectHandler(SegmentStreamHandler):
+    """
+    Create a SegmentedObjectHandler with the optional onSegmentedObject callback.
+
+    :param onSegmentedObject: (optional) When the child segments are assembled
+      into a single block of memory, this calls onSegment(handler, contentBlob)
+      where handler is this SegmentedObjectHandler and contentBlob is the Blob
+      assembled from the contents. If you don't supply an onSegmentedObject
+      callback here, you can call addOnStateChanged on the Namespace object to
+      which this is attached and listen for the OBJECT_READY state.
+    :type onSegment: function object
+    """
     def __init__(self, onSegmentedObject = None):
         super(SegmentedObjectHandler, self).__init__(self._onSegment)
 
@@ -34,7 +45,7 @@ class SegmentedObjectHandler(SegmentStreamHandler):
         self._totalSize = 0
         self._onSegmentedObject = onSegmentedObject
 
-    def _onSegment(self, segmentNamespace, callbackId):
+    def _onSegment(self, handler, segmentNamespace, callbackId):
         if self._segments == None:
             # We already finished and called onContent. (We don't expect this.)
             return
@@ -44,7 +55,7 @@ class SegmentedObjectHandler(SegmentStreamHandler):
             self._totalSize += segmentNamespace.getObject().size()
         else:
             # Finished. We don't need the callback anymore.
-            self.removeCallback(callbackId)
+            handler.removeCallback(callbackId)
 
             # Concatenate the segments.
             content = bytearray(self._totalSize)
