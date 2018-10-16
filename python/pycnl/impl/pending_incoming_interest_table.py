@@ -34,7 +34,7 @@ class PendingIncomingInterestTable(object):
         Create a PendingIncomingInterestTable.Entry and set the _timeoutTime
         based on the current time and the Interest lifetime.
 
-        :param Interest interest: The Interest.
+        :param Interest interest: The Interest. This does not make a copy.
         :param Face face: The face from the OnInterest callback.
           If the Interest is satisfied later by a new data packet, we will send
           the Data packet to the face.
@@ -99,12 +99,14 @@ class PendingIncomingInterestTable(object):
         """
         # Go backwards through the list so we can erase entries.
         nowMilliseconds = Common.getNowMilliseconds()
+
         for i in range(len(self._table) - 1, -1, -1):
             pendingInterest = self._table[i]
             if pendingInterest.isTimedOut(nowMilliseconds):
                 self._table.pop(i)
                 continue
 
+            # TODO: Use matchesData to match selectors?
             if pendingInterest.getInterest().matchesName(data.getName()):
                 try:
                     # Send to the same face from the original call to the 
