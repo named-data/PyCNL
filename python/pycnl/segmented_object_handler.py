@@ -18,8 +18,9 @@
 # A copy of the GNU Lesser General Public License is in the file COPYING.
 
 """
-This module defines the SegmentedObjectHandler class which assembles the
-contents of child segments into a single block of memory.
+This module defines the SegmentedObjectHandler class which extends
+SegmentStreamHandler and assembles the contents of child segments into a single
+block of memory.
 """
 
 from pyndn.util import Blob
@@ -54,9 +55,6 @@ class SegmentedObjectHandler(SegmentStreamHandler):
             self._segments.append(segmentNamespace.getObject())
             self._totalSize += segmentNamespace.getObject().size()
         else:
-            # Finished. We don't need the callback anymore.
-            handler.removeCallback(callbackId)
-
             # Concatenate the segments.
             content = bytearray(self._totalSize)
             offset = 0
