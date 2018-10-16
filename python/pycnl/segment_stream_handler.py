@@ -18,8 +18,9 @@
 # A copy of the GNU Lesser General Public License is in the file COPYING.
 
 """
-This module defines the SegmentStreamHandler class which attaches to a Namespace
-node to fetch and return child segments in order.
+This module defines the SegmentStreamHandler class which extends 
+Namespace.Handler and attaches to a Namespace node to fetch and return child
+segments in order.
 """
 
 import logging
@@ -147,9 +148,9 @@ class SegmentStreamHandler(Namespace.Handler):
         return True
 
     def _onStateChanged(self, namespace, changedNamespace, state, callbackId):
-        if not (len(changedNamespace.name) >= len(namespace.name) + 1 and
+        if not (len(changedNamespace.name) >= len(self.namespace.name) + 1 and
                 state == NamespaceState.OBJECT_READY and
-                changedNamespace.name[len(namespace.name)].isSegment()):
+                changedNamespace.name[len(self.namespace.name)].isSegment()):
             # Not a segment, ignore.
             return
 
@@ -161,7 +162,7 @@ class SegmentStreamHandler(Namespace.Handler):
         # Report as many segments as possible where the node already has content.
         while True:
             nextSegmentNumber = self._maxRetrievedSegmentNumber + 1
-            nextSegment = namespace[
+            nextSegment = self.namespace[
               Name.Component.fromSegment(nextSegmentNumber)]
             if nextSegment.getObject() == None:
                 break
