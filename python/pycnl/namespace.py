@@ -79,15 +79,17 @@ class Namespace(object):
             """
             Get the Namespace that this Handler is attached to.
 
-            :return: This Handler's Namespace.
+            :return: This Handler's Namespace, or None if this Handler is not
+              attached to a Namespace.
             :rtype: Namespace
             """
             return self._namespace
 
         def _canDeserialize(self, objectNamespace, blob, onDeserialized):
             """
-            Check if this Handler can deserialize the blob in order to set the
-            object for the objectNamespace. This base implementation just
+            An internal method to check if this Handler can deserialize the blob
+            in order to set the object for the objectNamespace. This should only
+            be called by the Namespace class. This base implementation just
             returns False. The subclass can override.
 
             :param Namespace objectNamespace: The Namespace node which needs its
@@ -104,7 +106,7 @@ class Namespace(object):
 
         def _onNamespaceSet(self):
             """
-            This protected method is called after this handler's Namespace field
+            This protected method is called after this Handler's Namespace field
             is set by attaching it. A subclass can override to perform actions
             with getNamespace() such as adding callbacks to the Namespace.
             """
