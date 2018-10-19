@@ -473,7 +473,7 @@ class Namespace(object):
           a Face object, it is replaced.
         :param onRegisterFailed: (optional) Call face.registerPrefix to
           register to receive Interest packets under this prefix, and if
-          regixter prefix fails for any reason, this calls
+          register prefix fails for any reason, this calls
           onRegisterFailed(prefix). However, if onRegisterFailed is omitted, do
           not register to receive Interests.
           NOTE: The library will log any exceptions raised by this callback, but
@@ -583,11 +583,11 @@ class Namespace(object):
         OnStateChanged callbacks.
         TODO: Replace this by a mechanism for requesting a Data object which is
         more general than a Face network operation.
-        :raises RuntimeError: If a Face object has not been set for this or a
-          parent Namespace node.
 
         :param Interest interestTemplate: (optional) The interest template for
           expressInterest. If omitted, just use a default interest lifetime.
+        :raises RuntimeError: If a Face object has not been set for this or a
+          parent Namespace node.
         """
         face = self._getFace()
         if face == None:
@@ -890,7 +890,8 @@ class Namespace(object):
 
         # Check if the Namespace node exists and has a matching Data packet.
         if self.hasChild(interestName):
-            bestMatch = Namespace._findBestMatchName(self[interestName], interest)
+            bestMatch = Namespace._findBestMatchName(
+              getChild(interestName), interest)
             if bestMatch != None:
                 # _findBestMatchName makes sure there is a _data packet.
                 face.putData(bestMatch._data)
@@ -905,14 +906,15 @@ class Namespace(object):
     def _findBestMatchName(namespace, interest):
         """
         This is a helper for _onInterest to find the longest-prefix match under
-        the Namespace.
+        the given Namespace.
 
         :param Namespace namespace: This searches this Namespace and its children.
         :param Interest interest: This calls interest.matchesData().
-        :return: The Namespace object for the matched name of None if not found.
+        :return: The Namespace object for the matched name or None if not found.
         :rtype: Namespace
         """
         bestMatch = None
+
         # Search the children backwards which will result in a "less than" name
         # among names of the same length.
         for i in range(len(namespace._sortedChildrenKeys) - 1, -1, -1):
