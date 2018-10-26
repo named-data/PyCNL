@@ -511,6 +511,22 @@ class Namespace(object):
         """
         self._keyChain = keyChain
 
+    def getKeyChain(self):
+        """
+        Get the KeyChain set by setKeyChain (or the NameSpace constructor) on
+        this or a parent Namespace node.
+
+        :return: The KeyChain, or None if not set on this or any parent.
+        :rtype: KeyChain
+        """
+        namespace = self
+        while namespace != None:
+            if namespace._keyChain != None:
+                return namespace._keyChain
+            namespace = namespace._parent
+
+        return None
+
     def setDecryptor(self, decryptor):
         """
         Set the decryptor used to decrypt the EncryptedContent of a Data packet
@@ -655,22 +671,6 @@ class Namespace(object):
         while namespace != None:
             if namespace._face != None:
                 return namespace._face
-            namespace = namespace._parent
-
-        return None
-
-    def _getKeyChain(self):
-        """
-        Get the KeyChain set by setKeyChain (or the NameSpace constructor) on
-        this or a parent Namespace node.
-
-        :return: The KeyChain, or None if not set on this or any parent.
-        :rtype: KeyChain
-        """
-        namespace = self
-        while namespace != None:
-            if namespace._keyChain != None:
-                return namespace._keyChain
             namespace = namespace._parent
 
         return None
