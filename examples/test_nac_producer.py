@@ -223,12 +223,12 @@ def main():
     def onObjectNeeded(namespace, neededNamespace, id):
         if not (len(neededNamespace.name) == len(contentPrefix) + 1 and
                 contentPrefix.isPrefixOf(neededNamespace.name) and
-                neededNamespace.name[len(contentPrefix)].isSegment()):
+                neededNamespace.name[-1].isSegment()):
             # Not a content segment, ignore.
             return False
 
         # Get the segment number.
-        segment = neededNamespace.name[len(contentPrefix)].toSegment()
+        segment = neededNamespace.name[-1].toSegment()
         if not (segment >= 0 and segment <= 1):
             # An invalid segment was requested.
             return False
