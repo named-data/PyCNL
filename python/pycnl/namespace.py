@@ -59,6 +59,7 @@ class Namespace(object):
         self._object = None
         self._face = None
         self._keyChain = keyChain
+        self._newDataMetaInfo = None
         self._decryptor = None
         self._decryptionError = ""
         self._handler = None
@@ -547,6 +548,15 @@ class Namespace(object):
 
         return None
 
+    def setNewDataMetaInfo(self, metaInfo):
+        """
+        Set the MetaInfo to use when creating a new Data packet at this or child
+        nodes. If a MetaInfo already exists at this node, it is replaced.
+
+        :param MetaInfo metaInfo: The MetaInfo object, which is copied.
+        """
+        self._newDataMetaInfo = MetaInfo(metaInfo)
+
     def setDecryptor(self, decryptor):
         """
         Set the decryptor used to decrypt the EncryptedContent of a Data packet
@@ -724,7 +734,7 @@ class Namespace(object):
         """
         Get the maximum Interest lifetime that was set on this or a parent node.
 
-        :return: The  maximum Interest lifetime, or the default if not set on
+        :return: The maximum Interest lifetime, or the default if not set on
           this or any parent.
         :rtype: float
         """
@@ -736,6 +746,21 @@ class Namespace(object):
 
         # Return the default.
         return 16000.0
+
+    def _getNewDataMetaInfo(self):
+        """
+        Get the new data MetaInfo that was set on this or a parent node.
+
+        :return: The new data MetaInfo, or null if not set on this or any parent.
+        :rtype: MetaInfo
+        """
+        namespace = self
+        while namespace != None:
+            if namespace._newDataMetaInfo != None:
+                return namespace._newDataMetaInfo
+            namespace = namespace._parent
+
+        return None
 
     def _deserialize(self, blob):
         """
