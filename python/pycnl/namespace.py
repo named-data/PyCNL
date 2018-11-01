@@ -75,6 +75,22 @@ class Namespace(object):
         def __init__(self):
             self._namespace = None
 
+        def setNamespace(self, namespace):
+            """
+            Set the Namespace that this handler is attached to. (This is
+            automatically called when you call Namespace.setHandler.)
+
+            :param Namespace namespace: The Handler's Namespace.
+            :raises RuntimeError: If this Handler is already attached to a
+              different Namespace.
+            """
+            if self._namespace != None and self._namespace != nameSpace:
+                raise RuntimeError(
+                  "This Handler is already attached to a different Namespace object")
+
+            self._namespace = namespace
+            self._onNamespaceSet()
+
         def getNamespace(self):
             """
             Get the Namespace that this Handler is attached to.
@@ -352,6 +368,10 @@ class Namespace(object):
         """
         return self._data
 
+    def setObject(self, obj):
+        self._object = obj
+        self._setState(NamespaceState.OBJECT_READY)
+
     def getObject(self):
         """
         Get the deserialized object attached to this Namespace object. Note that
@@ -542,12 +562,7 @@ class Namespace(object):
             # TODO: Should we try to chain handlers?
             raise ValueError("This Namespace node already has a handler")
 
-        if handler._namespace != None:
-            # TODO: Should we allow attaching to multiple Namespace nodes?
-            raise ValueError("The handler is already attached to a Namespace node")
-
-        handler._namespace = self
-        handler._onNamespaceSet()
+        handler.setNamespace(self)
         self._handler = handler
         return self
 
