@@ -164,7 +164,7 @@ def dump(*list):
         result += (element if type(element) is str else str(element)) + " "
     print(result)
 
-def prepareData(ckPrefix, keyChain, face, accessManagerFace):
+def prepareData(ckPrefix, keyChain, face):
     """
     Create the encrypted CK Data and KDK, and add to the Namespace object.
     For the meaning of "CK data", etc. see:
@@ -185,7 +185,7 @@ def prepareData(ckPrefix, keyChain, face, accessManagerFace):
     memberCertificate.setContent(Blob(MEMBER_PUBLIC_KEY, False))
 
     dataset = Name("/dataset")
-    accessManager = AccessManagerV2(accessIdentity, dataset, keyChain, accessManagerFace)
+    accessManager = AccessManagerV2(accessIdentity, dataset, keyChain, face)
     accessManager.addMember(memberCertificate)
     
     def onError(code, message):
@@ -209,15 +209,15 @@ def main():
        Blob(DEFAULT_RSA_PRIVATE_KEY_DER, False),
        Blob(DEFAULT_RSA_PUBLIC_KEY_DER, False)))
     face.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName())
+    # Enable Interest loopback so that the EncryptorV2 can fetch Data packets
+    # from the AccessManagerV2.
+    face.setInterestLoopbackEnabled(True)
 
     contentPrefix = Name("/testname/content")
     contentNamespace = Namespace(contentPrefix, keyChain)
 
     ckPrefix = Name("/some/ck/prefix")
-    # Use a different Face so it can communicate with the primary Face.
-    accessManagerFace = Face()
-    accessManagerFace.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName())
-    encryptor = prepareData(ckPrefix, keyChain, face, accessManagerFace)
+    encryptor = prepareData(ckPrefix, keyChain, face)
 
     # Make the callback to produce a Data packet for a content segment.
     def onObjectNeeded(namespace, neededNamespace, id):
@@ -256,7 +256,6 @@ def main():
 
     while True:
         face.processEvents()
-        accessManagerFace.processEvents()
         # We need to sleep for a few milliseconds so we don't use 100% of the CPU.
         time.sleep(0.01)
 
