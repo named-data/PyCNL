@@ -69,9 +69,7 @@ class SegmentedObjectHandler(SegmentStreamHandler):
             self._segments = None
 
             contentBlob = Blob(content, False)
-            # Debug: Call self.namespace.setObject().
-            self.namespace._object = contentBlob
-            self.namespace._setState(NamespaceState.OBJECT_READY)
+            self.namespace.setObject(contentBlob)
 
             if self._onSegmentedObject != None:
                 self._onSegmentedObject(self, contentBlob)
