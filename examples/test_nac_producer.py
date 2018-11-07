@@ -23,7 +23,7 @@ test_nac_consumer (which must be run separately).
 """
 
 import time
-from pyndn import Name, Data, Face
+from pyndn import Name, Face, MetaInfo
 from pyndn.util import Blob
 from pyndn.security import KeyChain, RsaKeyParams, SafeBag
 from pyndn.security import SigningInfo, ValidatorNull
@@ -216,6 +216,12 @@ def main():
     contentPrefix = Name("/testname/content")
     contentNamespace = Namespace(contentPrefix, keyChain)
 
+    # We know the content has two segments.
+    metaInfo = MetaInfo()
+    metaInfo.setFinalBlockId(Name().appendSegment(1)[0])
+    contentNamespace.setNewDataMetaInfo(metaInfo)
+
+
     ckPrefix = Name("/some/ck/prefix")
     encryptor = prepareData(ckPrefix, keyChain, face)
 
@@ -233,18 +239,13 @@ def main():
             # An invalid segment was requested.
             return False
 
-        # Make the Data packet for the segment.
-        data = Data(Name(contentPrefix).appendSegment(segment))
         segmentContent = ("This test message was decrypted" if segment == 0
                           else " from segments.")
-        data.setContent(
+        # Now call serializeObject which will answer the pending incoming Interest.
+        dump("Producing Data", neededNamespace.name)
+        neededNamespace.serializeObject(
           encryptor.encrypt(Blob(segmentContent)).wireEncodeV2())
-        data.getMetaInfo().setFinalBlockId(Name().appendSegment(1)[0])
-        keyChain.sign(data)
 
-        # Now call setData which will answer the pending incoming Interest.
-        dump("Produced Data", data.name)
-        neededNamespace[data.name].setData(data)
         return True
 
     contentNamespace.addOnObjectNeeded(onObjectNeeded)
