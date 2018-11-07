@@ -62,6 +62,7 @@ class Namespace(object):
         self._newDataMetaInfo = None
         self._decryptor = None
         self._decryptionError = ""
+        self._signingError = ""
         self._handler = None
         # The dictionary key is the callback ID. The value is the onStateChanged function.
         self._onStateChangedCallbacks = {}
@@ -214,6 +215,17 @@ class Namespace(object):
         """
         return self._decryptionError
 
+    def getSigningError(self):
+        """
+        Get the signing error for when the state is set to
+        NamespaceState.SIGNING_ERROR .
+
+        :return: The signing error, or "" if it hasn't been set due to a
+          SIGNING_ERROR.
+        :rtype: str
+        """
+        return self._signingError
+
     def hasChild(self, nameOrComponent):
         """
         Check if this node in the namespace has the given child (or decendant).
@@ -348,9 +360,9 @@ class Namespace(object):
         try:
             keyChain.sign(data)
         except Exception as ex:
-            dataNamespace._decryptionError = (
-              "Error decoding the EncryptedContent: " + repr(ex))
-            dataNamespace._setState(NamespaceState.DECRYPTION_ERROR)
+            dataNamespace._signingError = (
+              "Error signing the serialized Data: " + repr(ex))
+            dataNamespace._setState(NamespaceState.SIGNING_ERROR)
             return
 
         if self._root._pendingIncomingInterestTable != None:
@@ -1039,6 +1051,7 @@ class Namespace(object):
     validateState = property(getValidateState)
     validationError = property(getValidationError)
     decryptionError = property(getDecryptionError)
+    signingError = property(getSigningError)
     data = property(getData)
     # object is a special Python term, so use obj .
     obj = property(getObject)
