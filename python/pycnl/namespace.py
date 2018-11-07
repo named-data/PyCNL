@@ -25,8 +25,8 @@ the name tree and related operations to manage it.
 import bisect
 import threading
 import logging
-from pyndn import Name, Interest
-from pyndn.util import ExponentialReExpress
+from pyndn import Name, Interest, Data, MetaInfo
+from pyndn.util import Blob, ExponentialReExpress
 from pyndn.encrypt import EncryptedContent
 from pycnl.impl.pending_incoming_interest_table import PendingIncomingInterestTable
 
@@ -318,6 +318,49 @@ class Namespace(object):
         """
         return self._sortedChildrenKeys[:]
 
+    def serializeObject(self, obj):
+        # TODO: What if this node already has a _data and/or _object?
+
+        # TODO: Call handler canSerialize and set state SERIALIZING.
+        # (Does this happen in a different place from onObjectNeeded?)
+        # (If the handler can't serialize and this node has children, should abort?)
+
+        if not isinstance(obj, Blob):
+            raise RuntimeError(
+              "serializeObject: For the default serialize, the object must be a Blob")
+
+        keyChain = self.getKeyChain()
+        if keyChain == None:
+            raise RuntimeError(
+              "serializeObject: There is no KeyChain, so can't serialize " +
+              self._name.toUri())
+
+        # TODO: Encrypt and set state ENCRYPTING.
+
+        # Prepare the Data packet.
+        data = Data(self._name)
+        data.setContent(obj)
+        metaInfo = self._getNewDataMetaInfo()
+        if metaInfo != None:
+            data.setMetaInfo(metaInfo)
+
+        self._setState(NamespaceState.SIGNING)
+        try:
+            keyChain.sign(data)
+        except Exception as ex:
+            dataNamespace._decryptionError = (
+              "Error decoding the EncryptedContent: " + repr(ex))
+            dataNamespace._setState(NamespaceState.DECRYPTION_ERROR)
+            return
+
+        if self._root._pendingIncomingInterestTable != None:
+            # Quickly send the Data packet to satisfy interests, before calling callbacks.
+            self._root._pendingIncomingInterestTable.satisfyInterests(data)
+
+        self._data = data
+        # This sets OBJECT_READY.
+        self.setObject(obj)
+
     def setData(self, data):
         """
         Attach the Data packet to this Namespace. This sets the state to
@@ -341,7 +384,7 @@ class Namespace(object):
               "The Data packet name does not equal the name of this Namespace node.")
 
         if self._root._pendingIncomingInterestTable != None:
-            # Quickly send the Data packet to satisfy interest, before calling callbacks.
+            # Quickly send the Data packet to satisfy interests, before calling callbacks.
             self._root._pendingIncomingInterestTable.satisfyInterests(data)
 
         self._data = data
@@ -458,8 +501,8 @@ class Namespace(object):
           callback (the application or a Handler) can produce the object for
           the neededNamespace, then the callback should return True and the
           owner should produce the object (either during the callback or at a
-          later time) and call neededNamespace.setObject(). If the owner cannot
-          produce the object then the callback should return False.
+          later time) and call neededNamespace.serializeObject(). If the owner
+          cannot produce the object then the callback should return False.
           NOTE: The library will log any exceptions raised by this callback, but
           for better error handling the callback should catch and properly
           handle any exceptions.
@@ -931,7 +974,7 @@ class Namespace(object):
         # Check if the Namespace node exists and has a matching Data packet.
         if self.hasChild(interestName):
             bestMatch = Namespace._findBestMatchName(
-              getChild(interestName), interest)
+              self.getChild(interestName), interest)
             if bestMatch != None:
                 # _findBestMatchName makes sure there is a _data packet.
                 face.putData(bestMatch._data)
