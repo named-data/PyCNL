@@ -170,8 +170,8 @@ def prepareData(ckPrefix, keyChain, face):
     For the meaning of "CK data", etc. see:
     https://github.com/named-data/name-based-access-control/blob/new/docs/spec.rst
 
-    :return: The CK for encrypting the content.
-    :rtype: Blob
+    :return: The EncryptorV2 for encrypting the content.
+    :rtype: EncryptorV2
     """
     # Imitate TestEncryptorV2 and TestAccessManagerV2 from the integration tests.
     accessIdentity = keyChain.createIdentityV2(
@@ -186,17 +186,16 @@ def prepareData(ckPrefix, keyChain, face):
 
     dataset = Name("/dataset")
     accessManager = AccessManagerV2(accessIdentity, dataset, keyChain, face)
+    # The face now has callbacks to the AccessManagerV2 and will keep it alive.
     accessManager.addMember(memberCertificate)
     
     def onError(code, message):
       print("onError: " + message)
     # TODO: Sign with better than SHA256?
-    encryptor = EncryptorV2(
+    return EncryptorV2(
       Name(accessIdentity.getName()).append("NAC").append(dataset),
       ckPrefix, SigningInfo(SigningInfo.SignerType.SHA256),
       onError, ValidatorNull(), keyChain, face)
-
-    return encryptor
 
 def main():
     # The default Face will connect using a Unix socket, or to "localhost".
@@ -220,7 +219,6 @@ def main():
     metaInfo = MetaInfo()
     metaInfo.setFinalBlockId(Name().appendSegment(1)[0])
     contentNamespace.setNewDataMetaInfo(metaInfo)
-
 
     ckPrefix = Name("/some/ck/prefix")
     encryptor = prepareData(ckPrefix, keyChain, face)
