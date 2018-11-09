@@ -31,17 +31,17 @@ from pyndn.encrypt import EncryptedContent
 from pycnl.impl.pending_incoming_interest_table import PendingIncomingInterestTable
 
 class Namespace(object):
-    def __init__(self, name, keyChain = None):
-        """
-        Create a Namespace object with the given name, and with no parent. This
-        is the root of the name tree. To create child nodes, use
-        myNamespace.getChild("foo") or myNamespace["foo"].
+    """
+    Create a Namespace object with the given name, and with no parent. This
+    is the root of the name tree. To create child nodes, use
+    myNamespace.getChild("foo") or myNamespace["foo"].
 
-        :param Name name: The name of this root node in the namespace. This
-          makes a copy of the name.
-        :param KeyChain keyChain: (optional) The KeyChain for signing packets,
-          if needed. You can also call setKeyChain().
-        """
+    :param Name name: The name of this root node in the namespace. This
+      makes a copy of the name.
+    :param KeyChain keyChain: (optional) The KeyChain for signing packets,
+      if needed. You can also call setKeyChain().
+    """
+    def __init__(self, name, keyChain = None):
         self._name = Name(name)
         # _parent and _root may be updated by _createChild.
         self._parent = None
@@ -360,9 +360,9 @@ class Namespace(object):
         try:
             keyChain.sign(data)
         except Exception as ex:
-            dataNamespace._signingError = (
+            self._signingError = (
               "Error signing the serialized Data: " + repr(ex))
-            dataNamespace._setState(NamespaceState.SIGNING_ERROR)
+            self._setState(NamespaceState.SIGNING_ERROR)
             return
 
         if self._root._pendingIncomingInterestTable != None:
