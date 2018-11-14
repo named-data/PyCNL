@@ -86,7 +86,7 @@ class Namespace(object):
             :raises RuntimeError: If this Handler is already attached to a
               different Namespace.
             """
-            if self._namespace != None and self._namespace != nameSpace:
+            if self._namespace != None and self._namespace != namespace:
                 raise RuntimeError(
                   "This Handler is already attached to a different Namespace object")
 
@@ -957,6 +957,7 @@ class Namespace(object):
         :param obj: The deserialized object.
         :type obj: Blob or other type as determined by the attached handler
         """
+        print "Debug _onDeserialized", self._name
         self._object = obj
         self._setState(NamespaceState.OBJECT_READY)
 
