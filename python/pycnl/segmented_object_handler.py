@@ -31,11 +31,11 @@ class SegmentedObjectHandler(SegmentStreamHandler):
     Create a SegmentedObjectHandler with the optional onSegmentedObject callback.
 
     :param onSegmentedObject: (optional) When the child segments are assembled
-      into a single block of memory, this calls onSegmentedObject(handler, contentBlob)
-      where handler is this SegmentedObjectHandler and contentBlob is the Blob
-      assembled from the contents. If you don't supply an onSegmentedObject
-      callback here, you can call addOnStateChanged on the Namespace object to
-      which this is attached and listen for the OBJECT_READY state.
+      into a single block of memory, this calls onSegmentedObject(contentBlob)
+      where contentBlob is the Blob assembled from the contents. If you don't
+      supply an onSegmentedObject callback here, you can call addOnStateChanged
+      on the Namespace object to which this is attached and listen for the
+      OBJECT_READY state.
     :type onSegment: function object
     """
     def __init__(self, onSegmentedObject = None):
@@ -71,4 +71,4 @@ class SegmentedObjectHandler(SegmentStreamHandler):
             self.namespace.setObject(contentBlob)
 
             if self._onSegmentedObject != None:
-                self._onSegmentedObject(self, contentBlob)
+                self._onSegmentedObject(contentBlob)

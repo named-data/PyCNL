@@ -37,7 +37,7 @@ def main():
     page.setFace(face)
 
     enabled = [True]
-    def onSegmentedObject(handler, obj):
+    def onSegmentedObject(obj):
         dump("Got segmented object size", obj.size())
         enabled[0] = False
     page.setHandler(SegmentedObjectHandler(onSegmentedObject)).objectNeeded()
