@@ -24,7 +24,6 @@ block of memory.
 """
 
 from pyndn.util import Blob
-from pycnl.namespace import NamespaceState
 from pycnl.segment_stream_handler import SegmentStreamHandler
 
 class SegmentedObjectHandler(SegmentStreamHandler):
