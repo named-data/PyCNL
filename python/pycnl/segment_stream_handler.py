@@ -53,14 +53,11 @@ class SegmentStreamHandler(Namespace.Handler):
         Add an onSegment callback. When a new segment is available, this calls
         onSegment as described below. Segments are supplied in order.
 
-        :param onSegment: This calls
-          onSegment(handler, segmentNamespace, callbackId)
-          where handler is this SegmentStreamHandler, segmentNamespace is the
-          Namespace where you can use segmentNamespace.getObject(), and
-          callbackId is the callback ID returned by this method. You must check
-          if segmentNamespace is None because after supplying the final segment,
-          this calls onSegment(handler, None, callbackId) to signal the "end of
-          stream".
+        :param onSegment: This calls onSegment(segmentNamespace) where
+          segmentNamespace is the Namespace where you can use
+          segmentNamespace.getObject(). You must check if segmentNamespace is
+          None because after supplying the final segment, this calls
+          onSegment(None) to signal the "end of stream".
           NOTE: The library will log any exceptions raised by this callback, but
           for better error handling the callback should catch and properly
           handle any exceptions.
@@ -221,7 +218,7 @@ class SegmentStreamHandler(Namespace.Handler):
             # A callback on a previous pass may have removed this callback, so check.
             if id in self._onSegmentCallbacks.keys():
                 try:
-                    self._onSegmentCallbacks[id](self, segmentNamespace, id)
+                    self._onSegmentCallbacks[id](segmentNamespace)
                 except:
                     logging.exception("Error in onSegment")
 

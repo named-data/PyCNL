@@ -45,7 +45,7 @@ class SegmentedObjectHandler(SegmentStreamHandler):
         self._totalSize = 0
         self._onSegmentedObject = onSegmentedObject
 
-    def _onSegment(self, handler, segmentNamespace, callbackId):
+    def _onSegment(self, segmentNamespace):
         if self._segments == None:
             # We already finished and called onContent. (We don't expect this.)
             return
