@@ -632,7 +632,10 @@ class Namespace(object):
         return self
 
     def objectNeeded(self):
-        # Debug: Check if we already have the object. (But maybe not the _data?)
+        if self._object != None:
+            # We already have the object.
+            # Debug: (But maybe we don't have the _data and we need it?)
+            return
 
         # Ask all OnObjectNeeded callbacks if they can produce.
         canProduce = False
@@ -957,7 +960,6 @@ class Namespace(object):
         :param obj: The deserialized object.
         :type obj: Blob or other type as determined by the attached handler
         """
-        print "Debug _onDeserialized", self._name
         self._object = obj
         self._setState(NamespaceState.OBJECT_READY)
 
