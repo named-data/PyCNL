@@ -31,7 +31,7 @@ class SegmentedObjectHandler(SegmentStreamHandler):
     Create a SegmentedObjectHandler with the optional onSegmentedObject callback.
 
     :param onSegmentedObject: (optional) When the child segments are assembled
-      into a single block of memory, this calls onSegment(handler, contentBlob)
+      into a single block of memory, this calls onSegmentedObject(handler, contentBlob)
       where handler is this SegmentedObjectHandler and contentBlob is the Blob
       assembled from the contents. If you don't supply an onSegmentedObject
       callback here, you can call addOnStateChanged on the Namespace object to
