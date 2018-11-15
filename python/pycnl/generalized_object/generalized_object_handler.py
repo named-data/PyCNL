@@ -39,8 +39,9 @@ class GeneralizedObjectHandler(Namespace.Handler):
       onGeneralizedObject(contentMetaInfo, other) where contentMetaInfo is the
       ContentMetaInfo and other is the "other" info. If the hasSegments flag is
       true, when the segments are received and assembled into a single block of
-      memory, this calls onGeneralizedObject(contentBlob) where contentBlob is
-      the Blob, assembled from the segment contents. If you don't supply an
+      memory, this calls onGeneralizedObject(contentMetaInfo, contentBlob) where
+      contentMetaInfo is the ContentMetaInfo and contentBlob is the Blob,
+      assembled from the segment contents. If you don't supply an
       onGeneralizedObject callback here, you can call addOnStateChanged on the
       Namespace object to which this is attached and listen for the OBJECT_READY
       state.
