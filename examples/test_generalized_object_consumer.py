@@ -42,10 +42,9 @@ def main():
     prefixNamespace.setFace(face)
 
     enabled = [True]
-    def onGeneralizedObject(obj):
+    def onGeneralizedObject(contentMetaInfo, obj):
         dump("Got generalized object, content-type",
-             prefixNamespace["_meta"].getObject().getContentType(),
-             ":", str(obj))
+             contentMetaInfo.getContentType(), ":", str(obj))
         enabled[0] = False
 
     prefixNamespace.setHandler(GeneralizedObjectHandler(onGeneralizedObject)).objectNeeded()

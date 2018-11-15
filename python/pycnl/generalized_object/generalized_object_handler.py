@@ -35,11 +35,12 @@ class GeneralizedObjectHandler(Namespace.Handler):
     callback.
 
     :param onGeneralizedObject: (optional) When the ContentMetaInfo is received
-      and the hasSegments is false, this calls onGeneralizedObject(other) where
-      other is the "other" info. If the hasSegments flag is true, when the
-      segments are received and assembled into a single block of memory, this
-      calls onGeneralizedObject(contentBlob) where contentBlob is the Blob,
-      assembled from the segment contents. If you don't supply an
+      and the hasSegments is false, this calls
+      onGeneralizedObject(contentMetaInfo, other) where contentMetaInfo is the
+      ContentMetaInfo and other is the "other" info. If the hasSegments flag is
+      true, when the segments are received and assembled into a single block of
+      memory, this calls onGeneralizedObject(contentBlob) where contentBlob is
+      the Blob, assembled from the segment contents. If you don't supply an
       onGeneralizedObject callback here, you can call addOnStateChanged on the
       Namespace object to which this is attached and listen for the OBJECT_READY
       state.
@@ -50,7 +51,7 @@ class GeneralizedObjectHandler(Namespace.Handler):
 
         # Instead of making this inherit from SegmentedObjectHandler, we create
         # one here and pass the method calls through.
-        self._segmentedObjectHandler = SegmentedObjectHandler(onGeneralizedObject)
+        self._segmentedObjectHandler = SegmentedObjectHandler()
         # We'll call onGeneralizedObject if we don't use the SegmentedObjectHandler.
         self._onGeneralizedObject = onGeneralizedObject
 
@@ -171,17 +172,22 @@ class GeneralizedObjectHandler(Namespace.Handler):
 
         if contentMetaInfo.getHasSegments():
             # Initiate fetching segments. This will call self._onGeneralizedObject.
+            def onSegmentedObject(obj):
+                if self._onGeneralizedObject:
+                    self._onGeneralizedObject(contentMetaInfo, obj)
+
+            self._segmentedObjectHandler.addOnSegmentedObject(onSegmentedObject)
             self._segmentedObjectHandler.setNamespace(self.getNamespace())
             self.getNamespace().objectNeeded()
 
             # TODO: Fetch the _manifest packet. How to override per-packet verification?
         else:
             # No segments, so the object is the ContentMetaInfo "other" Blob.
-            if not contentMetaInfo.getOther().isNull():
-                self.getNamespace().setObject(contentMetaInfo.getOther())
+            self.getNamespace().setObject(contentMetaInfo.getOther())
 
-                if self._onGeneralizedObject:
-                    self._onGeneralizedObject(contentMetaInfo.getOther())
+            if self._onGeneralizedObject:
+                self._onGeneralizedObject(
+                  contentMetaInfo, contentMetaInfo.getOther())
 
         return True
 
