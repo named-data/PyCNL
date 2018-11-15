@@ -19,8 +19,8 @@
 
 """
 This module defines the GeneralizedObjectHandler class which extends
-Namespace.Handler and attaches to a Namespace node to fetche the _meta packet
-for a generalized object and, if necessary, assembles the contents of segment
+Namespace.Handler and attaches to a Namespace node to fetch the _meta packet
+for a generalized object and, if necessary, assemble the contents of segment
 packets into a single block of memory.
 """
 
@@ -31,7 +31,8 @@ from pycnl.generalized_object.content_meta_info import ContentMetaInfo
 
 class GeneralizedObjectHandler(Namespace.Handler):
     """
-    Create a GeneralizedObjectHandler with the optional onSegmentedObject callback.
+    Create a GeneralizedObjectHandler with the optional onGeneralizedObject
+    callback.
 
     :param onGeneralizedObject: (optional) When the ContentMetaInfo is received
       and the hasSegments is false, this calls onGeneralizedObject(other) where
