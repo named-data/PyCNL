@@ -24,18 +24,16 @@ block of memory.
 """
 
 from pyndn.util import Blob
+from pycnl.namespace import Namespace
 from pycnl.segment_stream_handler import SegmentStreamHandler
 
 class SegmentedObjectHandler(SegmentStreamHandler):
     """
     Create a SegmentedObjectHandler with the optional onSegmentedObject callback.
 
-    :param onSegmentedObject: (optional) When the child segments are assembled
-      into a single block of memory, this calls onSegmentedObject(contentBlob)
-      where contentBlob is the Blob assembled from the contents. If you don't
-      supply an onSegmentedObject callback here, you can call addOnStateChanged
-      on the Namespace object to which this is attached and listen for the
-      OBJECT_READY state.
+    :param onSegmentedObject: (optional) If not None, this calls
+      addOnSegmentedObject(onSegmentedObject). You may also call
+      addOnSegmentedObject directly.
     :type onSegment: function object
     """
     def __init__(self, onSegmentedObject = None):
@@ -43,7 +41,40 @@ class SegmentedObjectHandler(SegmentStreamHandler):
 
         self._segments = []
         self._totalSize = 0
-        self._onSegmentedObject = onSegmentedObject
+        # The dictionary key is the callback ID. The value is the OnSegmentedObject function.
+        self._onSegmentedObjectCallbacks = {}
+
+        if onSegmentedObject != None:
+            self.addOnSegmentedObject(onSegmentedObject)
+
+    def addOnSegmentedObject(self, onSegmentedObject):
+        """
+        Add an OnSegmentedObject callback. When the child segments are assembled
+        into a single block of memory, this calls onSegmentedObject as described
+        below.
+
+        :param onSegmentedObject: This calls onSegmentedObject(contentBlob)
+          where contentBlob is the Blob assembled from the contents.
+          NOTE: The library will log any exceptions raised by this callback, but
+          for better error handling the callback should catch and properly
+          handle any exceptions.
+        :type onSegment: function object
+        :return: The callback ID which you can use in removeCallback().
+        :rtype: int
+        """
+        callbackId = Namespace.getNextCallbackId()
+        self._onSegmentedObjectCallbacks[callbackId] = onSegmentedObject
+        return callbackId
+
+    def removeCallback(self, callbackId):
+        """
+        Remove the callback with the given callbackId. If the callbackId isn't
+        found, do nothing.
+
+        :param int callbackId: The callback ID returned, for example, from
+          addOnSegmentedObject.
+        """
+        self._onSegmentedObjectCallbacks.pop(callbackId, None)
 
     def _onSegment(self, segmentNamespace):
         if self._segments == None:
@@ -70,5 +101,14 @@ class SegmentedObjectHandler(SegmentStreamHandler):
             contentBlob = Blob(content, False)
             self.namespace.setObject(contentBlob)
 
-            if self._onSegmentedObject != None:
-                self._onSegmentedObject(contentBlob)
+            self._fireOnSegmentedObject(contentBlob)
+
+    def _fireOnSegmentedObject(self, contentBlob):
+        # Copy the keys before iterating since callbacks can change the list.
+        for id in list(self._onSegmentedObjectCallbacks.keys()):
+            # A callback on a previous pass may have removed this callback, so check.
+            if id in self._onSegmentedObjectCallbacks.keys():
+                try:
+                    self._onSegmentedObjectCallbacks[id](contentBlob)
+                except:
+                    logging.exception("Error in onSegmentedObject")
