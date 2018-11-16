@@ -80,7 +80,8 @@ class Namespace(object):
         def setNamespace(self, namespace):
             """
             Set the Namespace that this handler is attached to. (This is
-            automatically called when you call Namespace.setHandler.)
+            automatically called when you call Namespace.setHandler.) This
+            method does not attach this Handler to the Namespace.
 
             :param Namespace namespace: The Handler's Namespace.
             :raises RuntimeError: If this Handler is already attached to a
