@@ -365,20 +365,17 @@ class Namespace(object):
             self._setState(NamespaceState.SIGNING_ERROR)
             return
 
-        if self._root._pendingIncomingInterestTable != None:
-            # Quickly send the Data packet to satisfy interests, before calling callbacks.
-            self._root._pendingIncomingInterestTable.satisfyInterests(data)
+        # This calls satisfyInterests.
+        self.setData(data)
 
-        self._data = data
         # This sets OBJECT_READY.
         self.setObject(obj)
 
     def setData(self, data):
         """
-        Attach the Data packet to this Namespace. This sets the state to
-        NamespaceState.DATA_RECEIVED and calls callbacks as described by
-        addOnStateChanged. However, if a Data packet is already attached, do
-        nothing.
+        Attach the Data packet to this Namespace and satisfy pending Interests
+        for it. However, if a Data packet is already attached, do nothing. This
+        does not update the Namespace state.
 
         :param Data data: The Data packet object whose name must equal the name
           in this Namespace node. To get the right Namespace, you can use
@@ -400,7 +397,6 @@ class Namespace(object):
             self._root._pendingIncomingInterestTable.satisfyInterests(data)
 
         self._data = data
-        self._setState(NamespaceState.DATA_RECEIVED)
 
         # TODO: This is presumably called by the application in the producer
         # pipeline (who may have already serialized and encrypted), but should
@@ -699,6 +695,7 @@ class Namespace(object):
             dataNamespace = self[data.name]
             # setData will set the state to DATA_RECEIVED.
             dataNamespace.setData(data)
+            self._setState(NamespaceState.DATA_RECEIVED)
 
             # TODO: Start the validator.
             dataNamespace._setValidateState(NamespaceValidateState.VALIDATING)
