@@ -84,6 +84,8 @@ class Namespace(object):
             method does not attach this Handler to the Namespace.
 
             :param Namespace namespace: The Handler's Namespace.
+            :return: This Handler so you can chain calls to update values.
+            :rtype: Namespace.Handler
             :raises RuntimeError: If this Handler is already attached to a
               different Namespace.
             """
@@ -93,6 +95,8 @@ class Namespace(object):
 
             self._namespace = namespace
             self._onNamespaceSet()
+
+            return self
 
         def getNamespace(self):
             """
