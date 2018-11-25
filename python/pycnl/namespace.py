@@ -373,14 +373,14 @@ class Namespace(object):
         # This calls satisfyInterests.
         self.setData(data)
 
-        # This sets OBJECT_READY.
-        self.setObject(obj)
+        self._object = obj
+        self._setState(NamespaceState.OBJECT_READY)
 
     def setData(self, data):
         """
         Attach the Data packet to this Namespace and satisfy pending Interests
         for it. However, if a Data packet is already attached, do nothing. This
-        does not update the Namespace state.
+        does not update the Namespace state, decrypt, verify or deserialize.
 
         :param Data data: The Data packet object whose name must equal the name
           in this Namespace node. To get the right Namespace, you can use
@@ -424,10 +424,6 @@ class Namespace(object):
         :rtype: Data
         """
         return self._data
-
-    def setObject(self, obj):
-        self._object = obj
-        self._setState(NamespaceState.OBJECT_READY)
 
     def getObject(self):
         """
@@ -707,7 +703,7 @@ class Namespace(object):
 
             decryptor = dataNamespace._getDecryptor()
             if decryptor == None:
-                dataNamespace._deserialize(data.content)
+                dataNamespace._deserialize(data.content, None)
                 return
 
             # Decrypt, then deserialize.
@@ -822,20 +818,26 @@ class Namespace(object):
 
         return None
 
-    def _deserialize(self, blob):
+    def _deserialize(self, blob, onObjectSet = None):
         """
         If _canDeserialize on the Handler of this or a parent Namespace node
         returns True, set the state to DESERIALIZING and wait for the Handler to
-        set the object. Otherwise, just all the default onDeserialized
-        immediately, which sets the state to OBJECT_READY.
+        call the given onDeserialized. Otherwise, just call
+        _defaultOnDeserialized immediately, which sets the object and sets the
+        state to OBJECT_READY. This method name has an underscore because is
+        normally only called from a Handler, not from the application.
 
         :param Blob blob: The blob to deserialize.
+        :param onObjectSet: (optional) If supplied, after setting the object,
+          this calls onObjectSet(object).
+        :type onObjectSet: function object
         """
         namespace = self
         while namespace != None:
             if namespace._handler != None:
                 if namespace._handler._canDeserialize(
-                      self, blob, self._onDeserialized):
+                      self, blob, 
+                      lambda obj: self._defaultOnDeserialized(obj, onObjectSet)):
                     # Wait for the Handler to set the object.
                     self._setState(NamespaceState.DESERIALIZING)
                     return
@@ -844,8 +846,8 @@ class Namespace(object):
 
         # Debug: Check if the object has been set (even if canDeserialize returned False.)
 
-        # Call the default onDeserialized immediately.
-        self._onDeserialized(blob)
+        # Just call _defaultOnDeserialized immediately.
+        self._defaultOnDeserialized(blob, onObjectSet)
 
     def __getitem__(self, key):
         """
@@ -953,7 +955,7 @@ class Namespace(object):
 
         return canProduce
 
-    def _onDeserialized(self, obj):
+    def _defaultOnDeserialized(self, obj, onObjectSet):
         """
         Set _object to the given value, set the state to
         NamespaceState.OBJECT_READY, and fire the OnStateChanged callbacks.
@@ -961,9 +963,15 @@ class Namespace(object):
 
         :param obj: The deserialized object.
         :type obj: Blob or other type as determined by the attached handler
+        :param onObjectSet: If supplied, after setting the object, this calls
+          onObjectSet(object).
+        :type onObjectSet: function object
         """
         self._object = obj
         self._setState(NamespaceState.OBJECT_READY)
+
+        if (onObjectSet != None):
+            onObjectSet(obj)
 
     def _onInterest(self, prefix, interest, face, interestFilterId, filter):
         """
