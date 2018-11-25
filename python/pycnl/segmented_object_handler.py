@@ -53,8 +53,9 @@ class SegmentedObjectHandler(SegmentStreamHandler):
         into a single block of memory, this calls onSegmentedObject as described
         below.
 
-        :param onSegmentedObject: This calls onSegmentedObject(contentBlob)
-          where contentBlob is the Blob assembled from the contents.
+        :param onSegmentedObject: This calls onSegmentedObject(object) where
+          object is the object that was assembled from the segment contents and
+          deserialized.
           NOTE: The library will log any exceptions raised by this callback, but
           for better error handling the callback should catch and properly
           handle any exceptions.
@@ -98,17 +99,16 @@ class SegmentedObjectHandler(SegmentStreamHandler):
             # Free memory.
             self._segments = None
 
-            contentBlob = Blob(content, False)
-            self.namespace.setObject(contentBlob)
+            # Deserialize and fire the onSegmentedObject callbacks when done.
+            self.namespace._deserialize(
+              Blob(content, False), self._fireOnSegmentedObject)
 
-            self._fireOnSegmentedObject(contentBlob)
-
-    def _fireOnSegmentedObject(self, contentBlob):
+    def _fireOnSegmentedObject(self, obj):
         # Copy the keys before iterating since callbacks can change the list.
         for id in list(self._onSegmentedObjectCallbacks.keys()):
             # A callback on a previous pass may have removed this callback, so check.
             if id in self._onSegmentedObjectCallbacks.keys():
                 try:
-                    self._onSegmentedObjectCallbacks[id](contentBlob)
+                    self._onSegmentedObjectCallbacks[id](obj)
                 except:
                     logging.exception("Error in onSegmentedObject")
