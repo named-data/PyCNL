@@ -24,7 +24,9 @@ for a generalized object and, if necessary, assemble the contents of segment
 packets into a single block of memory.
 """
 
-from pyndn import Name
+from pyndn import Name, MetaInfo
+from pyndn.util import Blob
+from pyndn.util.common import Common
 from pycnl.namespace import Namespace
 from pycnl.segmented_object_handler import SegmentedObjectHandler
 from pycnl.generalized_object.content_meta_info import ContentMetaInfo
@@ -36,15 +38,16 @@ class GeneralizedObjectHandler(Namespace.Handler):
 
     :param onGeneralizedObject: (optional) When the ContentMetaInfo is received
       and the hasSegments is false, this calls
-      onGeneralizedObject(contentMetaInfo, other) where contentMetaInfo is the
-      ContentMetaInfo and other is the "other" info. If the hasSegments flag is
-      true, when the segments are received and assembled into a single block of
-      memory, this calls onGeneralizedObject(contentMetaInfo, contentBlob) where
-      contentMetaInfo is the ContentMetaInfo and contentBlob is the Blob,
-      assembled from the segment contents. If you don't supply an
-      onGeneralizedObject callback here, you can call addOnStateChanged on the
-      Namespace object to which this is attached and listen for the OBJECT_READY
-      state.
+      onGeneralizedObject(contentMetaInfo, obj) where contentMetaInfo is the
+      ContentMetaInfo and obj is the "other" info as a BlobObject or possibly
+      deserialized into another type. If the hasSegments flag is true, when the
+      segments are received and assembled into a single block of memory, this
+      calls onGeneralizedObject(contentMetaInfo, obj) where contentMetaInfo is
+      the ContentMetaInfo and obj is the object that was assembled from the
+      segment contents as a BlobObject or possibly deserialized to another type.
+      If you don't supply an onGeneralizedObject callback here, you can call
+      addOnStateChanged on the Namespace object to which this is attached and
+      listen for the OBJECT_READY state.
     :type onSegment: function object
     """
     def __init__(self, onGeneralizedObject = None):
@@ -144,12 +147,12 @@ class GeneralizedObjectHandler(Namespace.Handler):
         # We don't attach the SegmentedObjectHandler until we need it.
 
     def _onObjectNeeded(self, namespace, neededNamespace, id):
-        if neededNamespace != self.getNamespace():
+        if neededNamespace != self.namespace:
             # Don't respond for child namespaces (including when we call
             # objectNeeded on the _meta child below).
             return False
 
-        self.getNamespace()[GeneralizedObjectHandler.NAME_COMPONENT_META].objectNeeded()
+        self.namespace[self.NAME_COMPONENT_META].objectNeeded()
         return True
 
     def _canDeserialize(self, objectNamespace, blob, onDeserialized):
@@ -157,9 +160,8 @@ class GeneralizedObjectHandler(Namespace.Handler):
         This is called by Namespace when a packet is received. If this is the
         _meta packet, then decode it.
         """
-        if not (len(objectNamespace.name) == len(self.getNamespace().name) + 1 and
-                objectNamespace.name[-1] ==
-                  GeneralizedObjectHandler.NAME_COMPONENT_META):
+        if not (len(objectNamespace.name) == len(self.namespace.name) + 1 and
+                objectNamespace.name[-1] == self.NAME_COMPONENT_META):
             # Not the _meta packet. Ignore.
             return False;
 
@@ -171,24 +173,21 @@ class GeneralizedObjectHandler(Namespace.Handler):
         # This will set the object for the _meta Namespace node.
         onDeserialized(contentMetaInfo)
 
+        def onSegmentedObject(obj):
+            if self._onGeneralizedObject:
+                self._onGeneralizedObject(contentMetaInfo, obj)
+
         if contentMetaInfo.getHasSegments():
             # Initiate fetching segments. This will call self._onGeneralizedObject.
-            def onSegmentedObject(obj):
-                if self._onGeneralizedObject:
-                    self._onGeneralizedObject(contentMetaInfo, obj)
-
             self._segmentedObjectHandler.addOnSegmentedObject(onSegmentedObject)
-            self._segmentedObjectHandler.setNamespace(self.getNamespace())
-            self.getNamespace().objectNeeded()
+            self._segmentedObjectHandler.setNamespace(self.namespace)
+            self.namespace.objectNeeded()
 
             # TODO: Fetch the _manifest packet. How to override per-packet verification?
         else:
             # No segments, so the object is the ContentMetaInfo "other" Blob.
-            self.getNamespace().setObject(contentMetaInfo.getOther())
-
-            if self._onGeneralizedObject:
-                self._onGeneralizedObject(
-                  contentMetaInfo, contentMetaInfo.getOther())
+            # Deserialize and call the same callback as the segmentedObjectHandler.
+            self.namespace._deserialize(contentMetaInfo.getOther(), onSegmentedObject)
 
         return True
 
