@@ -37,9 +37,8 @@ def main():
     # The default Face will connect using a Unix socket, or to "localhost".
     face = Face()
 
-    prefix = Name("/ndn/stream_prefix/1")
-    prefixNamespace = Namespace(prefix)
-    prefixNamespace.setFace(face)
+    objectPrefix = Namespace("/ndn/eb/run/28/description")
+    objectPrefix.setFace(face)
 
     enabled = [True]
     def onGeneralizedObject(contentMetaInfo, obj):
@@ -47,7 +46,7 @@ def main():
              contentMetaInfo.getContentType(), ":", str(obj))
         enabled[0] = False
 
-    prefixNamespace.setHandler(GeneralizedObjectHandler(onGeneralizedObject)).objectNeeded()
+    objectPrefix.setHandler(GeneralizedObjectHandler(onGeneralizedObject)).objectNeeded()
 
     # Loop calling processEvents until a callback sets enabled[0] = False.
     while enabled[0]:

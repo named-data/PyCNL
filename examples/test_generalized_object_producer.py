@@ -151,33 +151,29 @@ def main():
        Blob(DEFAULT_RSA_PUBLIC_KEY_DER, False)))
     face.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName())
 
-    streamNamespace = Namespace("/ndn/stream_prefix", keyChain)
+    objectPrefix = Namespace("/ndn/eb/run/28/description", keyChain)
 
-    dump("Register prefix", streamNamespace.name)
+    dump("Register prefix", objectPrefix.name)
     # Set the face and register to receive Interests.
-    streamNamespace.setFace(face,
+    objectPrefix.setFace(face,
       lambda prefixName: dump("Register failed for prefix", prefixName))
 
-    sequenceNumber = 1
-    sequenceNamespace = streamNamespace[str(sequenceNumber)]
-    dump("Preparing data for", sequenceNamespace.name)
+    dump("Preparing data for", objectPrefix.name)
 
     # Prepare the _meta packet.
     contentMetaInfo = ContentMetaInfo()
-    contentMetaInfo.setContentType("ndnrtc4")
+    contentMetaInfo.setContentType("text/html")
     contentMetaInfo.setTimestamp(Common.getNowMilliseconds())
     contentMetaInfo.setHasSegments(True)
     contentMetaInfo.setOther(Blob("Debug other"))
-    sequenceNamespace["_meta"].serializeObject(contentMetaInfo.wireEncode())
+    objectPrefix["_meta"].serializeObject(contentMetaInfo.wireEncode())
 
     # We know the content has two segments.
     metaInfo = MetaInfo()
     metaInfo.setFinalBlockId(Name().appendSegment(1)[0])
-    sequenceNamespace.setNewDataMetaInfo(metaInfo)
-    sequenceNamespace[Name.Component.fromSegment(0)].serializeObject(
-      Blob("Test"))
-    sequenceNamespace[Name.Component.fromSegment(1)].serializeObject(
-      Blob(" message " + str(sequenceNumber)))
+    objectPrefix.setNewDataMetaInfo(metaInfo)
+    objectPrefix[Name.Component.fromSegment(0)].serializeObject(Blob("EB run #28. "))
+    objectPrefix[Name.Component.fromSegment(1)].serializeObject(Blob("Ham and oats"))
 
     while True:
         face.processEvents()
