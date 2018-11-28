@@ -59,88 +59,16 @@ class GeneralizedObjectHandler(Namespace.Handler):
         # We'll call onGeneralizedObject if we don't use the SegmentedObjectHandler.
         self._onGeneralizedObject = onGeneralizedObject
 
-    def addOnSegment(self, onSegment):
+    def getSegmentedObjectHandler(self):
         """
-        Add an onSegment callback. When a new segment is available, this calls
-        onSegment as described below. Segments are supplied in order.
-        This is only used if the ContentMetaInfo hasSegments flag is true.
+        Get the SegmentedObjectHandler which is used to segment an object and
+        fetch segments. You can use this to set parameters such as
+        getSegmentedObjectHandler().setInterestPipelineSize().
 
-        :param onSegment: This calls onSegment(segmentNamespace) where
-          segmentNamespace is the Namespace where you can use
-          segmentNamespace.getObject(). You must check if segmentNamespace is
-          None because after supplying the final segment, this calls
-          onSegment(None) to signal the "end of stream".
-          NOTE: The library will log any exceptions raised by this callback, but
-          for better error handling the callback should catch and properly
-          handle any exceptions.
-        :type onSegment: function object
-        :return: The callback ID which you can use in removeCallback().
-        :rtype: int
+        :return: The SegmentedObjectHandler.
+        :rtype: SegmentedObjectHandler
         """
-        # Pass through to the _segmentedObjectHandler.
-        return self._segmentedObjectHandler.addOnSegment(onSegment)
-
-    def removeCallback(self, callbackId):
-        """
-        Remove the callback with the given callbackId. If the callbackId isn't
-        found, do nothing.
-
-        :param int callbackId: The callback ID returned, for example, from
-          addOnSegment.
-        """
-        # Pass through to the _segmentedObjectHandler.
-        self._segmentedObjectHandler.removeCallback(callbackId)
-
-    def getInterestPipelineSize(self):
-        """
-        Get the number of outstanding interests which this maintains while
-        fetching segments.
-        This is only used if the ContentMetaInfo hasSegments flag is true.
-
-        :return: The Interest pipeline size.
-        :rtype: int
-        """
-        # Pass through to the _segmentedObjectHandler.
-        return self._segmentedObjectHandler.getInterestPipelineSize()
-
-    def setInterestPipelineSize(self, interestPipelineSize):
-        """
-        Set the number of outstanding interests which this maintains while
-        fetching segments.
-        This is only used if the ContentMetaInfo hasSegments flag is true.
-
-        :param int interestPipelineSize: The Interest pipeline size.
-        :raises RuntimeError: If interestPipelineSize is less than 1.
-        """
-        # Pass through to the _segmentedObjectHandler.
-        self._segmentedObjectHandler.setInterestPipelineSize(interestPipelineSize)
-
-    def getInitialInterestCount(self):
-        """
-        Get the initial Interest count (as described in setInitialInterestCount).
-        This is only used if the ContentMetaInfo hasSegments flag is true.
-
-        :return: The initial Interest count.
-        :rtype: int
-        """
-        # Pass through to the _segmentedObjectHandler.
-        return self._segmentedObjectHandler.getInitialInterestCount()
-
-    def setInitialInterestCount(self, initialInterestCount):
-        """
-        Set the number of initial Interests to send for segments. By default
-          this just sends an Interest for the first segment and waits for the
-          response before fetching more segments, but if you know the number of
-          segments you can reduce latency by initially requesting more segments.
-          (However, you should not use a number larger than the Interest
-          pipeline size.)
-        This is only used if the ContentMetaInfo hasSegments flag is true.
-
-        :param int initialInterestCount: The initial Interest count.
-        :raises RuntimeError: If initialInterestCount is less than 1.
-        """
-        # Pass through to the _segmentedObjectHandler.
-        self._segmentedObjectHandler.setInitialInterestCount(initialInterestCount)
+        return self._segmentedObjectHandler
 
     def _onNamespaceSet(self):
         self.namespace.addOnObjectNeeded(self._onObjectNeeded)
