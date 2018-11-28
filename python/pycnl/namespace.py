@@ -387,12 +387,15 @@ class Namespace(object):
           getChild(data.getName()). For efficiency, this does not copy the Data
           packet object. If your application may change the object later, then
           you must call setData with a copy of the object.
+        :return: True if the Data packet is attached, False if a Data packet was
+          already attached.
+        :rtype: bool
         :raises RuntimeError: If the Data packet name does not equal the name of
           this Namespace node.
         """
         if self._data != None:
             # We already have an attached object.
-            return
+            return False
         if not data.name.equals(self._name):
             raise RuntimeError(
               "The Data packet name does not equal the name of this Namespace node.")
@@ -403,9 +406,7 @@ class Namespace(object):
 
         self._data = data
 
-        # TODO: This is presumably called by the application in the producer
-        # pipeline (who may have already serialized and encrypted), but should
-        # we decrypt and deserialize?
+        return True
 
     def getData(self):
         """
@@ -694,8 +695,9 @@ class Namespace(object):
 
         def onData(interest, data):
             dataNamespace = self[data.name]
-            # setData will set the state to DATA_RECEIVED.
-            dataNamespace.setData(data)
+            if not dataNamespace.setData(data):
+                # A Data packet is already attached.
+                return
             self._setState(NamespaceState.DATA_RECEIVED)
 
             # TODO: Start the validator.
