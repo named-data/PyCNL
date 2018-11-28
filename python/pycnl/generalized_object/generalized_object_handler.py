@@ -120,6 +120,3 @@ class GeneralizedObjectHandler(Namespace.Handler):
         return True
 
     NAME_COMPONENT_META = Name.Component("_meta")
-
-    interestPipelineSize = property(getInterestPipelineSize, setInterestPipelineSize)
-    initialInterestCount = property(getInitialInterestCount, setInitialInterestCount)
