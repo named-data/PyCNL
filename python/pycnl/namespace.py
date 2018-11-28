@@ -346,7 +346,7 @@ class Namespace(object):
             raise RuntimeError(
               "serializeObject: For the default serialize, the object must be a Blob")
 
-        keyChain = self.getKeyChain()
+        keyChain = self._getKeyChain()
         if keyChain == None:
             raise RuntimeError(
               "serializeObject: There is no KeyChain, so can't serialize " +
@@ -585,10 +585,11 @@ class Namespace(object):
         """
         self._keyChain = keyChain
 
-    def getKeyChain(self):
+    def _getKeyChain(self):
         """
         Get the KeyChain set by setKeyChain (or the NameSpace constructor) on
-        this or a parent Namespace node.
+        this or a parent Namespace node. This method name has an underscore
+        because is normally only called from a Handler, not from the application.
 
         :return: The KeyChain, or None if not set on this or any parent.
         :rtype: KeyChain
