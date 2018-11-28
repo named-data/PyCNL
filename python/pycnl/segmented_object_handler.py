@@ -23,6 +23,7 @@ SegmentStreamHandler and assembles the contents of child segments into a single
 block of memory.
 """
 
+from pyndn import Name
 from pyndn.util import Blob
 from pycnl.namespace import Namespace
 from pycnl.segment_stream_handler import SegmentStreamHandler
@@ -112,3 +113,5 @@ class SegmentedObjectHandler(SegmentStreamHandler):
                     self._onSegmentedObjectCallbacks[id](obj)
                 except:
                     logging.exception("Error in onSegmentedObject")
+
+    NAME_COMPONENT_MANIFEST = Name.Component("_manifest")
