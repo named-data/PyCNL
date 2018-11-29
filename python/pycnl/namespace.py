@@ -639,10 +639,16 @@ class Namespace(object):
         self._handler = handler
         return self
 
-    def objectNeeded(self):
-        if self._object != None:
-            # We already have the object.
-            # Debug: (But maybe we don't have the _data and we need it?)
+    def objectNeeded(self, mustBeFresh = False):
+        # Check if we already have the object.
+        interest = Interest(self._name)
+        interest.setMustBeFresh(mustBeFresh)
+        # Debug: This requires a Data packet. Check for an object without one?
+        bestMatch = self._findBestMatchName(
+          self, interest, Common.getNowMilliseconds())
+        if bestMatch != None and bestMatch._object != None:
+            # Set the state again to fire the callbacks.
+            bestMatch.setState(NamespaceState.OBJECT_READY)
             return
 
         # Ask all OnObjectNeeded callbacks if they can produce.
@@ -660,8 +666,24 @@ class Namespace(object):
             self._setState(NamespaceState.PRODUCING_OBJECT)
             return
 
-        # Debug: Need an Interest template?
-        self.expressInterest()
+        # Express the interest.
+        face = self._getFace()
+        if face == None:
+            raise RuntimeError("A Face object has not been set for this or a parent.")
+        # TODO: What if the state is already INTEREST_EXPRESSED?
+        self._setState(NamespaceState.INTEREST_EXPRESSED)
+        def onTimeout(interest):
+            # TODO: Need to detect a timeout on a child node.
+            self._setState(NamespaceState.INTEREST_TIMEOUT)
+        def onNetworkNack(interest, networkNack):
+            # TODO: Need to detect a network nack on a child node.
+            self._networkNack = networkNack
+            self._setState(NamespaceState.INTEREST_NETWORK_NACK)
+        face.expressInterest(
+          interest, self._onData,
+          ExponentialReExpress.makeOnTimeout(
+            face, self._onData, onTimeout, self._getMaxInterestLifetime()),
+          onNetworkNack)
 
     def setMaxInterestLifetime(self, maxInterestLifetime):
         """
@@ -675,87 +697,11 @@ class Namespace(object):
         """
         self._maxInterestLifetime = maxInterestLifetime
 
-    def expressInterest(self, interestTemplate = None):
-        """
-        Call expressInterest on this (or a parent's) Face where the interest
-        name is the name of this Namespace node. When the Data packet is
-        received this calls setData, so you should use a callback with
-        addOnStateChanged. This uses ExponentialReExpress to re-express a
-        timed-out interest with longer lifetimes, with a maximum determined by
-        setMaxInterestLifetime(). If the Interest times out,
-        this sets the state to NamespaceState.INTEREST_TIMEOUT and calls the
-        OnStateChanged callbacks. If this receives a network Nack, this stores
-        the NetworkNack object which you can access with getNetworkNack(), sets
-        the state to NamespaceState.INTEREST_NETWORK_NACK, and calls the
-        OnStateChanged callbacks.
-        TODO: Replace this by a mechanism for requesting a Data object which is
-        more general than a Face network operation.
-
-        :param Interest interestTemplate: (optional) The interest template for
-          expressInterest. If omitted, just use a default interest lifetime.
-        :raises RuntimeError: If a Face object has not been set for this or a
-          parent Namespace node.
-        """
-        face = self._getFace()
-        if face == None:
-            raise RuntimeError("A Face object has not been set for this or a parent.")
-
-        # TODO: What if the state is already INTEREST_EXPRESSED?
-        self._setState(NamespaceState.INTEREST_EXPRESSED)
-
-        def onData(interest, data):
-            dataNamespace = self[data.name]
-            if not dataNamespace.setData(data):
-                # A Data packet is already attached.
-                return
-            self._setState(NamespaceState.DATA_RECEIVED)
-
-            # TODO: Start the validator.
-            dataNamespace._setValidateState(NamespaceValidateState.VALIDATING)
-
-            decryptor = dataNamespace._getDecryptor()
-            if decryptor == None:
-                dataNamespace._deserialize(data.content, None)
-                return
-
-            # Decrypt, then deserialize.
-            dataNamespace._setState(NamespaceState.DECRYPTING)
-            try:
-                encryptedContent = EncryptedContent()
-                encryptedContent.wireDecodeV2(data.content)
-            except Exception as ex:
-                dataNamespace._decryptionError = (
-                  "Error decoding the EncryptedContent: " + repr(ex))
-                dataNamespace._setState(NamespaceState.DECRYPTION_ERROR)
-                return
-
-            def onError(code, message):
-                dataNamespace._decryptionError = (
-                  "Decryptor error " + repr(code) + ": " + message)
-                dataNamespace._setState(NamespaceState.DECRYPTION_ERROR)
-            decryptor.decrypt(encryptedContent, dataNamespace._deserialize, onError)
-
-        def onTimeout(interest):
-            # TODO: Need to detect a timeout on a child node.
-            self._setState(NamespaceState.INTEREST_TIMEOUT)
-
-        def onNetworkNack(interest, networkNack):
-            # TODO: Need to detect a network nack on a child node.
-            self._networkNack = networkNack
-            self._setState(NamespaceState.INTEREST_NETWORK_NACK)
-
-        if interestTemplate == None:
-            interestTemplate = Interest()
-            interestTemplate.setInterestLifetimeMilliseconds(4000)
-        face.expressInterest(
-          self._name, interestTemplate, onData,
-          ExponentialReExpress.makeOnTimeout(
-            face, onData, onTimeout, self._getMaxInterestLifetime()),
-          onNetworkNack)
-
     def _getFace(self):
         """
-        Get the Face set by setFace on this or a parent Namespace node.
+        Get the Face set by setFace on this or a parent Namespace node. This
+        method name has an underscore because is normally only called from a
+        Handler, not from the application.
 
         :return: The Face, or None if not set on this or any parent.
         :rtype: Face
@@ -1063,6 +1009,38 @@ class Namespace(object):
             return namespace
 
         return None
+
+    def _onData(self, interest, data):
+        dataNamespace = self[data.name]
+        if not dataNamespace.setData(data):
+            # A Data packet is already attached.
+            return
+        self._setState(NamespaceState.DATA_RECEIVED)
+
+        # TODO: Start the validator.
+        dataNamespace._setValidateState(NamespaceValidateState.VALIDATING)
+
+        decryptor = dataNamespace._getDecryptor()
+        if decryptor == None:
+            dataNamespace._deserialize(data.content, None)
+            return
+
+        # Decrypt, then deserialize.
+        dataNamespace._setState(NamespaceState.DECRYPTING)
+        try:
+            encryptedContent = EncryptedContent()
+            encryptedContent.wireDecodeV2(data.content)
+        except Exception as ex:
+            dataNamespace._decryptionError = (
+              "Error decoding the EncryptedContent: " + repr(ex))
+            dataNamespace._setState(NamespaceState.DECRYPTION_ERROR)
+            return
+
+        def onError(code, message):
+            dataNamespace._decryptionError = (
+              "Decryptor error " + repr(code) + ": " + message)
+            dataNamespace._setState(NamespaceState.DECRYPTION_ERROR)
+        decryptor.decrypt(encryptedContent, dataNamespace._deserialize, onError)
 
     @staticmethod
     def getNextCallbackId():
