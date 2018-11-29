@@ -27,6 +27,7 @@ import threading
 import logging
 from pyndn import Name, Interest, Data, MetaInfo
 from pyndn.util import Blob, ExponentialReExpress
+from pyndn.util.common import Common
 from pyndn.encrypt import EncryptedContent
 from pycnl.impl.pending_incoming_interest_table import PendingIncomingInterestTable
 
@@ -55,6 +56,7 @@ class Namespace(object):
         self._networkNack = None
         self._validateState = NamespaceValidateState.WAITING_FOR_DATA
         self._validationError = None
+        self._freshnessExpiryTimeMilliseconds = None
         self._data = None
         self._object = None
         self._face = None
@@ -404,6 +406,13 @@ class Namespace(object):
             # Quickly send the Data packet to satisfy interests, before calling callbacks.
             self._root._pendingIncomingInterestTable.satisfyInterests(data)
 
+        if (data.getMetaInfo().getFreshnessPeriod() != None and
+            data.getMetaInfo().getFreshnessPeriod() >= 0.0):
+            self._freshnessExpiryTimeMilliseconds = (Common.getNowMilliseconds() +
+              data.getMetaInfo().getFreshnessPeriod())
+        else:
+            # Does not expire.
+            self._freshnessExpiryTimeMilliseconds = None
         self._data = data
 
         return True
@@ -1002,7 +1011,7 @@ class Namespace(object):
         # Check if the Namespace node exists and has a matching Data packet.
         if self.hasChild(interestName):
             bestMatch = Namespace._findBestMatchName(
-              self.getChild(interestName), interest)
+              self.getChild(interestName), interest, Common.getNowMilliseconds())
             if bestMatch != None:
                 # _findBestMatchName makes sure there is a _data packet.
                 face.putData(bestMatch._data)
@@ -1014,13 +1023,15 @@ class Namespace(object):
         self.getChild(interestName).objectNeeded()
 
     @staticmethod
-    def _findBestMatchName(namespace, interest):
+    def _findBestMatchName(namespace, interest, nowMilliseconds):
         """
         This is a helper for _onInterest to find the longest-prefix match under
         the given Namespace.
 
         :param Namespace namespace: This searches this Namespace and its children.
         :param Interest interest: This calls interest.matchesData().
+        :param float nowMilliseconds: The current time in milliseconds from
+          Common.getNowMilliseconds, for checking Data packet freshness.
         :return: The Namespace object for the matched name or None if not found.
         :rtype: Namespace
         """
@@ -1040,6 +1051,13 @@ class Namespace(object):
         if bestMatch != None:
             # We have a child match, and it is longer than this name, so return it.
             return bestMatch
+
+        if (interest.getMustBeFresh() and
+            nameSpace._freshnessExpiryTimeMilliseconds != None and
+            nowMilliseconds >= nameSpace._freshnessExpiryTimeMilliseconds):
+            # The Data packet is no longer fresh.
+            # Debug: When to set the state to OBJECT_READY_BUT_STALE?
+            return None
 
         if namespace._data != None and interest.matchesData(namespace._data):
             return namespace
