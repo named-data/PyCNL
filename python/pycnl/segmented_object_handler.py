@@ -170,6 +170,9 @@ class SegmentedObjectHandler(SegmentStreamHandler):
             namespace[self.NAME_COMPONENT_MANIFEST].serializeObject(
               Blob(manifestContent))
 
+        # TODO: Do this in a canSerialize callback from Namespace.serializeObject?
+        nameSpace._setObject(obj)
+
     def _onSegment(self, segmentNamespace):
         if self._segments == None:
             # We already finished and called onContent. (We don't expect this.)
