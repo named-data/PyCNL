@@ -48,7 +48,7 @@ class GeneralizedObjectHandler(Namespace.Handler):
       If you don't supply an onGeneralizedObject callback here, you can call
       addOnStateChanged on the Namespace object to which this is attached and
       listen for the OBJECT_READY state.
-    :type onSegment: function object
+    :type onGeneralizedObject: function object
     """
     def __init__(self, onGeneralizedObject = None):
         super(GeneralizedObjectHandler, self).__init__()
