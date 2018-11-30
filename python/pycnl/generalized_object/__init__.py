@@ -20,13 +20,16 @@
 # Don't include internal modules.
 from pycnl.generalized_object import content_meta_info
 from pycnl.generalized_object import generalized_object_handler
-__all__ = ['content_meta_info', 'generalized_object_handler']
+from pycnl.generalized_object import generalized_object_stream_handler
+__all__ = ['content_meta_info', 'generalized_object_handler',
+           'generalized_object_stream_handler']
 
 import sys as _sys
 
 try:
     from pycnl.generalized_object.content_meta_info import *
     from pycnl.generalized_object.generalized_object_handler import *
+    from pycnl.generalized_object.generalized_object_stream_handler import *
 except ImportError:
     del _sys.modules[__name__]
     raise
