@@ -24,8 +24,7 @@ for a generalized object and, if necessary, assemble the contents of segment
 packets into a single block of memory.
 """
 
-from pyndn import Name, MetaInfo
-from pyndn.util import Blob
+from pyndn import Name
 from pyndn.util.common import Common
 from pycnl.namespace import Namespace
 from pycnl.segmented_object_handler import SegmentedObjectHandler
@@ -70,6 +69,41 @@ class GeneralizedObjectHandler(Namespace.Handler):
         """
         return self._segmentedObjectHandler
 
+    def setObject(self, namespace, obj, contentType):
+        """
+        Create a _meta packet with the given contentType and as a child of the
+        given Namespace. If the object is large enough to require segmenting,
+        also segment the object and create child segment packets plus a
+        signature _manifest packet of the given Namespace.
+
+        :param Namespace namespace: The Namespace to append segment packets to.
+          This ignores the Namespace from setNamespace().
+        :param obj: The object to publish as a Generalized Object.
+        :type obj: Blob or other type as determined by an attached handler
+        :param str contentType: The content type for the content _meta packet.
+        """
+        hasSegments = (obj.size() >
+          self._segmentedObjectHandler.getMaxSegmentPayloadLength())
+
+        # Prepare the _meta packet.
+        contentMetaInfo = ContentMetaInfo()
+        contentMetaInfo.setContentType(contentType)
+        contentMetaInfo.setTimestamp(Common.getNowMilliseconds())
+        contentMetaInfo.setHasSegments(hasSegments)
+
+        if not hasSegments:
+            # We don't need to segment. Put the object in the "other" field.
+            contentMetaInfo.setOther(obj);
+
+        namespace[self.NAME_COMPONENT_META].serializeObject(
+          contentMetaInfo.wireEncode())
+
+        if hasSegments:
+            self._segmentedObjectHandler.setObject(namespace, obj, True)
+        else:
+            # TODO: Do this in a canSerialize callback from Namespace.serializeObject?
+            namespace._setObject(obj)
+
     def _onNamespaceSet(self):
         self.namespace.addOnObjectNeeded(self._onObjectNeeded)
         # We don't attach the SegmentedObjectHandler until we need it.
@@ -109,7 +143,8 @@ class GeneralizedObjectHandler(Namespace.Handler):
             # Initiate fetching segments. This will call self._onGeneralizedObject.
             self._segmentedObjectHandler.addOnSegmentedObject(onSegmentedObject)
             self._segmentedObjectHandler.setNamespace(self.namespace)
-            self.namespace.objectNeeded()
+            # Explicitly request segment 0 to avoid fetching _meta, etc.
+            self.namespace[Name.Component.fromSegment(0)].objectNeeded()
 
             # TODO: Fetch the _manifest packet. How to override per-packet verification?
         else:
