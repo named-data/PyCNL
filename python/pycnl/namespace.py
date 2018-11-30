@@ -958,9 +958,10 @@ class Namespace(object):
             return
 
         # Check if the Namespace node exists and has a matching Data packet.
+        interestNamespace = self.getChild(interestName)
         if self.hasChild(interestName):
             bestMatch = Namespace._findBestMatchName(
-              self.getChild(interestName), interest, Common.getNowMilliseconds())
+              interestNamespace, interest, Common.getNowMilliseconds())
             if bestMatch != None:
                 # _findBestMatchName makes sure there is a _data packet.
                 face.putData(bestMatch._data)
@@ -968,8 +969,16 @@ class Namespace(object):
 
         # No Data packet found, so save the pending Interest.
         self._root._pendingIncomingInterestTable.add(interest, face)
-        # Signal that a Data packet is needed.
-        self.getChild(interestName).objectNeeded()
+
+        # Ask all OnObjectNeeded callbacks if they can produce.
+        canProduce = False
+        namespace = interestNamespace
+        while namespace != None:
+            if namespace._fireOnObjectNeeded(interestNamespace):
+                canProduce = True
+            namespace = namespace._parent
+        if canProduce:
+            interestNamespace._setState(NamespaceState.PRODUCING_OBJECT)
 
     @staticmethod
     def _findBestMatchName(namespace, interest, nowMilliseconds):
