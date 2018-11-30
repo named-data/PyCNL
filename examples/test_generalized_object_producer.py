@@ -23,12 +23,11 @@ test_generalized_object_consumer (which must be run separately).
 """
 
 import time
-from pyndn import Name, Face, MetaInfo
+from pyndn import Name, Face
 from pyndn.util import Blob
-from pyndn.util.common import Common
 from pyndn.security import KeyChain, SafeBag
 from pycnl import Namespace
-from pycnl.generalized_object import ContentMetaInfo, GeneralizedObjectHandler
+from pycnl.generalized_object import GeneralizedObjectHandler
 
 DEFAULT_RSA_PUBLIC_KEY_DER = bytearray([
     0x30, 0x82, 0x01, 0x22, 0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01,

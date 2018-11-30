@@ -23,7 +23,7 @@ test_generalized_object_producer (which must be running).
 """
 
 import time
-from pyndn import Name, Face
+from pyndn import Face
 from pycnl import Namespace
 from pycnl.generalized_object import GeneralizedObjectHandler
 
