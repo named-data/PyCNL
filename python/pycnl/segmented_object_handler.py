@@ -171,7 +171,7 @@ class SegmentedObjectHandler(SegmentStreamHandler):
               Blob(manifestContent))
 
         # TODO: Do this in a canSerialize callback from Namespace.serializeObject?
-        nameSpace._setObject(obj)
+        namespace._setObject(obj)
 
     def _onSegment(self, segmentNamespace):
         if self._segments == None:
