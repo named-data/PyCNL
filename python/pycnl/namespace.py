@@ -645,6 +645,8 @@ class Namespace(object):
     def objectNeeded(self, mustBeFresh = False):
         # Check if we already have the object.
         interest = Interest(self._name)
+        # TODO: Make the lifetime configurable.
+        interest.setInterestLifetimeMilliseconds(4000.0)
         interest.setMustBeFresh(mustBeFresh)
         # Debug: This requires a Data packet. Check for an object without one?
         bestMatch = self._findBestMatchName(
