@@ -1003,8 +1003,8 @@ class Namespace(object):
             return bestMatch
 
         if (interest.getMustBeFresh() and
-            nameSpace._freshnessExpiryTimeMilliseconds != None and
-            nowMilliseconds >= nameSpace._freshnessExpiryTimeMilliseconds):
+            namespace._freshnessExpiryTimeMilliseconds != None and
+            nowMilliseconds >= namespace._freshnessExpiryTimeMilliseconds):
             # The Data packet is no longer fresh.
             # Debug: When to set the state to OBJECT_READY_BUT_STALE?
             return None
