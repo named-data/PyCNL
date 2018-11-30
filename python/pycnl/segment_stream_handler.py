@@ -38,7 +38,7 @@ class SegmentStreamHandler(Namespace.Handler):
     def __init__(self, onSegment = None):
         super(SegmentStreamHandler, self).__init__()
 
-        self._maxRetrievedSegmentNumber = -1
+        self._maxReportedSegmentNumber = -1
         self._finalSegmentNumber = None
         self._interestPipelineSize = 8
         self._initialInterestCount = 1
@@ -158,13 +158,13 @@ class SegmentStreamHandler(Namespace.Handler):
 
         # Report as many segments as possible where the node already has content.
         while True:
-            nextSegmentNumber = self._maxRetrievedSegmentNumber + 1
+            nextSegmentNumber = self._maxReportedSegmentNumber + 1
             nextSegment = self.namespace[
               Name.Component.fromSegment(nextSegmentNumber)]
             if nextSegment.getObject() == None:
                 break
 
-            self._maxRetrievedSegmentNumber = nextSegmentNumber
+            self._maxReportedSegmentNumber = nextSegmentNumber
             self._fireOnSegment(nextSegment)
 
             if (self._finalSegmentNumber != None and
@@ -196,7 +196,7 @@ class SegmentStreamHandler(Namespace.Handler):
                     break
 
         # Now find unrequested segment numbers and request.
-        segmentNumber = self._maxRetrievedSegmentNumber
+        segmentNumber = self._maxReportedSegmentNumber
         while nRequestedSegments < maxRequestedSegments:
             segmentNumber += 1
             if (self._finalSegmentNumber != None and
