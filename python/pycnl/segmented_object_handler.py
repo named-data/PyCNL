@@ -23,6 +23,7 @@ SegmentStreamHandler and assembles the contents of child segments into a single
 block of memory.
 """
 
+import logging
 from pyndn import Name, Data, DigestSha256Signature
 from pyndn.util import Blob
 from pycnl.namespace import Namespace
