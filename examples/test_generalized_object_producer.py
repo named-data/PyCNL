@@ -28,7 +28,7 @@ from pyndn.util import Blob
 from pyndn.util.common import Common
 from pyndn.security import KeyChain, SafeBag
 from pycnl import Namespace
-from pycnl.generalized_object import ContentMetaInfo
+from pycnl.generalized_object import ContentMetaInfo, GeneralizedObjectHandler
 
 DEFAULT_RSA_PUBLIC_KEY_DER = bytearray([
     0x30, 0x82, 0x01, 0x22, 0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01,
@@ -159,21 +159,8 @@ def main():
       lambda prefixName: dump("Register failed for prefix", prefixName))
 
     dump("Preparing data for", objectPrefix.name)
-
-    # Prepare the _meta packet.
-    contentMetaInfo = ContentMetaInfo()
-    contentMetaInfo.setContentType("text/html")
-    contentMetaInfo.setTimestamp(Common.getNowMilliseconds())
-    contentMetaInfo.setHasSegments(True)
-    contentMetaInfo.setOther(Blob("Debug other"))
-    objectPrefix["_meta"].serializeObject(contentMetaInfo.wireEncode())
-
-    # We know the content has two segments.
-    metaInfo = MetaInfo()
-    metaInfo.setFinalBlockId(Name().appendSegment(1)[0])
-    objectPrefix.setNewDataMetaInfo(metaInfo)
-    objectPrefix[Name.Component.fromSegment(0)].serializeObject(Blob("EB run #28. "))
-    objectPrefix[Name.Component.fromSegment(1)].serializeObject(Blob("Ham and oats"))
+    GeneralizedObjectHandler().setObject(
+      objectPrefix, Blob("EB run #28. Ham and oats"), "text/html")
 
     while True:
         face.processEvents()
