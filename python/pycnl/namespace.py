@@ -375,6 +375,9 @@ class Namespace(object):
         # This calls satisfyInterests.
         self.setData(data)
 
+        self._setObject(obj)
+
+    def _setObject(self, obj):
         self._object = obj
         self._setState(NamespaceState.OBJECT_READY)
 
