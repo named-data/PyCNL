@@ -651,7 +651,7 @@ class Namespace(object):
           self, interest, Common.getNowMilliseconds())
         if bestMatch != None and bestMatch._object != None:
             # Set the state again to fire the callbacks.
-            bestMatch.setState(NamespaceState.OBJECT_READY)
+            bestMatch._setState(NamespaceState.OBJECT_READY)
             return
 
         # Ask all OnObjectNeeded callbacks if they can produce.
@@ -990,7 +990,8 @@ class Namespace(object):
         # among names of the same length.
         for i in range(len(namespace._sortedChildrenKeys) - 1, -1, -1):
             child = namespace._children[namespace._sortedChildrenKeys[i]]
-            childBestMatch = Namespace._findBestMatchName(child, interest)
+            childBestMatch = Namespace._findBestMatchName(
+              child, interest, nowMilliseconds)
 
             if (childBestMatch != None and
                 (bestMatch == None or
