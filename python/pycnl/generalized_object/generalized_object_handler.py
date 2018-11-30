@@ -24,6 +24,7 @@ for a generalized object and, if necessary, assemble the contents of segment
 packets into a single block of memory.
 """
 
+import logging
 from pyndn import Name
 from pyndn.util.common import Common
 from pycnl.namespace import Namespace
@@ -137,7 +138,10 @@ class GeneralizedObjectHandler(Namespace.Handler):
 
         def onSegmentedObject(obj):
             if self._onGeneralizedObject:
-                self._onGeneralizedObject(contentMetaInfo, obj)
+                try:
+                    self._onGeneralizedObject(contentMetaInfo, obj)
+                except:
+                    logging.exception("Error in onGeneralizedObject")
 
         if contentMetaInfo.getHasSegments():
             # Initiate fetching segments. This will call self._onGeneralizedObject.
