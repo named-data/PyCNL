@@ -193,14 +193,15 @@ class SegmentedObjectHandler(SegmentStreamHandler):
                 # Free the memory.
                 self._segments[i] = None
                 
-            # Free memory.
+            # Free resources that won't be used anymore.
+            # The OnSegment callback was already removed by the SegmentStreamHandler.
             self._segments = None
 
             # Deserialize and fire the onSegmentedObject callbacks when done.
             self.namespace._deserialize(
-              Blob(content, False), self._fireOnSegmentedObject)
+              Blob(content, False), self._fireOnSegmentedObjectAndRemove)
 
-    def _fireOnSegmentedObject(self, obj):
+    def _fireOnSegmentedObjectAndRemove(self, obj):
         # Copy the keys before iterating since callbacks can change the list.
         for id in list(self._onSegmentedObjectCallbacks.keys()):
             # A callback on a previous pass may have removed this callback, so check.
@@ -209,6 +210,9 @@ class SegmentedObjectHandler(SegmentStreamHandler):
                     self._onSegmentedObjectCallbacks[id](obj)
                 except:
                     logging.exception("Error in onSegmentedObject")
+
+        # We only fire the callbacks once, so free the resources.
+        self._onSegmentedObjectCallbacks = {}
 
     NAME_COMPONENT_MANIFEST = Name.Component("_manifest")
 
