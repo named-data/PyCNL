@@ -150,8 +150,8 @@ class SegmentStreamHandler(Namespace.Handler):
 
     def _onStateChanged(self, namespace, changedNamespace, state, callbackId):
         if not (state == NamespaceState.OBJECT_READY and
-                len(changedNamespace.name) >= len(self.namespace.name) + 1 and
-                changedNamespace.name[len(self.namespace.name)].isSegment()):
+                len(changedNamespace.name) == len(self.namespace.name) + 1 and
+                changedNamespace.name[-1].isSegment()):
             # Not a segment, ignore.
             return
 
