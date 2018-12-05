@@ -438,6 +438,22 @@ class Namespace(object):
         """
         return self._data
 
+    def getAllData(self, dataList):
+        """
+        Recursively append to the Data packets for this and children nodes to
+        the given list.
+
+        :param Array<Data> dataList: Append the Data packets to this list. This
+          does not first clear the list. You should not modify the returned Data
+          packets. If you need to modify one, then make a copy.
+        """
+        if self._data != None:
+            dataList.append(self._data)
+
+        if len(self._children) > 0:
+            for child in self._sortedChildrenKeys:
+                self._children[child].getAllData(dataList)
+
     def getObject(self):
         """
         Get the deserialized object attached to this Namespace object. Note that
