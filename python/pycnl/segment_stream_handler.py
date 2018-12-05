@@ -44,6 +44,8 @@ class SegmentStreamHandler(Namespace.Handler):
         self._initialInterestCount = 1
         # The dictionary key is the callback ID. The value is the OnSegment function.
         self._onSegmentCallbacks = {}
+        self._onObjectNeededId = 0
+        self._onStateChangedId = 0
 
         if onSegment != None:
             self.addOnSegment(onSegment)
@@ -127,8 +129,10 @@ class SegmentStreamHandler(Namespace.Handler):
         self._initialInterestCount = initialInterestCount
 
     def _onNamespaceSet(self):
-        self.namespace.addOnObjectNeeded(self._onObjectNeeded)
-        self.namespace.addOnStateChanged(self._onStateChanged)
+        self._onObjectNeededId = self.namespace.addOnObjectNeeded(
+          self._onObjectNeeded)
+        self._onStateChangedId = self.namespace.addOnStateChanged(
+          self._onStateChanged)
 
     def _onObjectNeeded(self, namespace, neededNamespace, id):
         """
@@ -171,6 +175,12 @@ class SegmentStreamHandler(Namespace.Handler):
                 nextSegmentNumber == self._finalSegmentNumber):
                 # Finished.
                 self._fireOnSegment(None)
+
+                # Free resources that won't be used anymore.
+                self._onSegmentCallbacks = {}
+                self.namespace.removeCallback(self._onObjectNeededId)
+                self.namespace.removeCallback(self._onStateChangedId)
+
                 return
 
         self._requestNewSegments(self._interestPipelineSize)
