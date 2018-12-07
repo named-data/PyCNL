@@ -40,9 +40,10 @@ def main():
     stream = Namespace("/ndn/eb/stream/run/28/annotations")
     stream.setFace(face)
 
-    def onNewObject(sequenceNumber, contentMetaInfo, obj):
+    def onNewObject(sequenceNumber, contentMetaInfo, objectNamespace):
         dump("Got generalized object, sequenceNumber", sequenceNumber,
-             ", content-type", contentMetaInfo.getContentType(), ":", str(obj))
+             ", content-type", contentMetaInfo.getContentType(), ":",
+             str(objectNamespace.obj))
     pipelineSize = 10
     stream.setHandler(
       GeneralizedObjectStreamHandler(pipelineSize, onNewObject)).objectNeeded()
