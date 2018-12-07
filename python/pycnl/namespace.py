@@ -808,7 +808,7 @@ class Namespace(object):
 
         :param Blob blob: The blob to deserialize.
         :param onObjectSet: (optional) If supplied, after setting the object,
-          this calls onObjectSet(object).
+          this calls onObjectSet(objectNamespace).
         :type onObjectSet: function object
         """
         namespace = self
@@ -949,8 +949,8 @@ class Namespace(object):
         self._object = obj
         self._setState(NamespaceState.OBJECT_READY)
 
-        if (onObjectSet != None):
-            onObjectSet(obj)
+        if onObjectSet != None:
+            onObjectSet(self)
 
     def _onInterest(self, prefix, interest, face, interestFilterId, filter):
         """
