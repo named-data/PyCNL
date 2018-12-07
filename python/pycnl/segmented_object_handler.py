@@ -56,9 +56,9 @@ class SegmentedObjectHandler(SegmentStreamHandler):
         into a single block of memory, this calls onSegmentedObject as described
         below.
 
-        :param onSegmentedObject: This calls onSegmentedObject(object) where
-          object is the object that was assembled from the segment contents and
-          deserialized.
+        :param onSegmentedObject: This calls onSegmentedObject(objectNamespace)
+          where objectNamespace.obj is the object that was assembled from the
+          segment contents and deserialized.
           NOTE: The library will log any exceptions raised by this callback, but
           for better error handling the callback should catch and properly
           handle any exceptions.
@@ -198,21 +198,21 @@ class SegmentedObjectHandler(SegmentStreamHandler):
             self._segments = None
 
             # Deserialize and fire the onSegmentedObject callbacks when done.
-            self.namespace._deserialize(
-              Blob(content, False), self._fireOnSegmentedObjectAndRemove)
+            def onObjectSet(objectNamespace):
+                self._fireOnSegmentedObject(self.namespace)
+                # We only fire the callbacks once, so free the resources.
+                self._onSegmentedObjectCallbacks = {}
+            self.namespace._deserialize(Blob(content, False), onObjectSet)
 
-    def _fireOnSegmentedObjectAndRemove(self, obj):
+    def _fireOnSegmentedObject(self, objectNamespace):
         # Copy the keys before iterating since callbacks can change the list.
         for id in list(self._onSegmentedObjectCallbacks.keys()):
             # A callback on a previous pass may have removed this callback, so check.
             if id in self._onSegmentedObjectCallbacks.keys():
                 try:
-                    self._onSegmentedObjectCallbacks[id](obj)
+                    self._onSegmentedObjectCallbacks[id](objectNamespace)
                 except:
                     logging.exception("Error in onSegmentedObject")
-
-        # We only fire the callbacks once, so free the resources.
-        self._onSegmentedObjectCallbacks = {}
 
     NAME_COMPONENT_MANIFEST = Name.Component("_manifest")
 
