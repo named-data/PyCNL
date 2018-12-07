@@ -163,8 +163,8 @@ def main():
     contentNamespace.setDecryptor(decryptor)
 
     enabled = [True]
-    def onSegmentedObject(obj):
-        dump("Got segmented content", obj.toRawStr())
+    def onSegmentedObject(objectNamespace):
+        dump("Got segmented content", objectNamespace.obj.toRawStr())
         enabled[0] = False
     contentNamespace.setHandler(SegmentedObjectHandler(onSegmentedObject)).objectNeeded()
 
