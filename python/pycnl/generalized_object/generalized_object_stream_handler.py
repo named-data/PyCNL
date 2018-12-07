@@ -39,19 +39,20 @@ class GeneralizedObjectStreamHandler(Namespace.Handler):
       not interests). The pipelineSize times the expected period between objects
       should be less than the maximum interest lifetime.
     :param onSequencedGeneralizedObject: (optional) When the ContentMetaInfo is
-      received for a new sequence number and the hasSegments is false, this calls
-      onSequencedGeneralizedObject(sequenceNumber, contentMetaInfo, object) where
-      sequenceNumber is the new sequence number, contentMetaInfo is the
-      ContentMetaInfo and object is the "other" info as a BlobObject or possibly
-      deserialized into another type. If the hasSegments flag is true, when the
-      segments are received and assembled into a single block of memory, this
-      calls onSequencedGeneralizedObject(sequenceNumber, contentMetaInfo, object)
+      received for a new sequence number and the hasSegments is False, this calls
+      onSequencedGeneralizedObject(sequenceNumber, contentMetaInfo, objectNamespace)
       where sequenceNumber is the new sequence number, contentMetaInfo is the
-      ContentMetaInfo and object is the object that was assembled from the
-      segment contents as a BlobObject or possibly deserialized to another type.
-      If you don't supply an onGeneralizedObject callback here, you can call
-      addOnStateChanged on the Namespace object to which this is attached and
-      listen for the OBJECT_READY state.
+      ContentMetaInfo and objectNamespace.obj is the "other" info as a Blob or
+      possibly deserialized into another type. If the hasSegments flag is True,
+      when the segments are received and assembled into a single block of
+      memory, this calls
+      onSequencedGeneralizedObject(sequenceNumber, contentMetaInfo, objectNamespace)
+      where sequenceNumber is the new sequence number, contentMetaInfo is the
+      ContentMetaInfo and objectNamespace.obj is the object that was assembled
+      from the segment contents as a Blob or possibly deserialized to another
+      type. If you don't supply an onSequencedGeneralizedObject callback here,
+      you can call addOnStateChanged on the Namespace object to which this is
+      attached and listen for the OBJECT_READY state.
     :type onSequencedGeneralizedObject: function object
     """
     def __init__(self, pipelineSize = 8, onSequencedGeneralizedObject = None):
@@ -253,11 +254,12 @@ class GeneralizedObjectStreamHandler(Namespace.Handler):
             # We are in loop scope, su use a factory function to capture sequenceNumber.
             def makeOnGeneralizedObject(sequenceNumber):
                 def onGeneralizedObject(contentMetaInfo, objectNamespace):
-                    try:
-                        self._onSequencedGeneralizedObject(
-                          sequenceNumber, contentMetaInfo, objectNamespace.obj)
-                    except:
-                        logging.exception("Error in onSequencedGeneralizedObject")
+                    if self._onSequencedGeneralizedObject != None:
+                        try:
+                            self._onSequencedGeneralizedObject(
+                              sequenceNumber, contentMetaInfo, objectNamespace)
+                        except:
+                            logging.exception("Error in onSequencedGeneralizedObject")
 
                     if sequenceNumber > self._maxReportedSequenceNumber:
                         self._maxReportedSequenceNumber = sequenceNumber
@@ -271,3 +273,6 @@ class GeneralizedObjectStreamHandler(Namespace.Handler):
             sequenceMeta.objectNeeded()
 
     NAME_COMPONENT_LATEST = Name.Component("_latest")
+
+    producedSequenceNumber = property(getProducedSequenceNumber)
+    latestPacketFreshnessPeriod = property(getLatestPacketFreshnessPeriod, setLatestPacketFreshnessPeriod)
