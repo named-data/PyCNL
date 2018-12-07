@@ -37,17 +37,18 @@ class GeneralizedObjectHandler(Namespace.Handler):
     callback.
 
     :param onGeneralizedObject: (optional) When the ContentMetaInfo is received
-      and the hasSegments is false, this calls
-      onGeneralizedObject(contentMetaInfo, obj) where contentMetaInfo is the
-      ContentMetaInfo and obj is the "other" info as a BlobObject or possibly
-      deserialized into another type. If the hasSegments flag is true, when the
-      segments are received and assembled into a single block of memory, this
-      calls onGeneralizedObject(contentMetaInfo, obj) where contentMetaInfo is
-      the ContentMetaInfo and obj is the object that was assembled from the
-      segment contents as a BlobObject or possibly deserialized to another type.
-      If you don't supply an onGeneralizedObject callback here, you can call
-      addOnStateChanged on the Namespace object to which this is attached and
-      listen for the OBJECT_READY state.
+      and the hasSegments is False, this calls
+      onGeneralizedObject(contentMetaInfo, objectNamespace) where
+      contentMetaInfo is the ContentMetaInfo and objectNamespace.obj is the
+      "other" info as a Blob or possibly deserialized into another type. If the
+      hasSegments flag is True, when the segments are received and assembled
+      into a single block of memory, this calls
+      onGeneralizedObject(contentMetaInfo, objectNamespace) where
+      contentMetaInfo is the ContentMetaInfo and objectNamespace.obj is the
+      object that was assembled from the segment contents as a Blob or possibly
+      deserialized to another type. If you don't supply an onGeneralizedObject
+      callback here, you can call addOnStateChanged on the Namespace object to
+      which this is attached and listen for the OBJECT_READY state.
     :type onGeneralizedObject: function object
     """
     def __init__(self, onGeneralizedObject = None):
@@ -139,7 +140,7 @@ class GeneralizedObjectHandler(Namespace.Handler):
         def onSegmentedObject(objectNamespace):
             if self._onGeneralizedObject:
                 try:
-                    self._onGeneralizedObject(contentMetaInfo, objectNamespace.obj)
+                    self._onGeneralizedObject(contentMetaInfo, objectNamespace)
                 except:
                     logging.exception("Error in onGeneralizedObject")
 
