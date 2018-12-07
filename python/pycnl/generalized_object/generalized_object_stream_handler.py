@@ -252,10 +252,10 @@ class GeneralizedObjectStreamHandler(Namespace.Handler):
             nRequestedSequenceNumbers += 1
             # We are in loop scope, su use a factory function to capture sequenceNumber.
             def makeOnGeneralizedObject(sequenceNumber):
-                def onGeneralizedObject(contentMetaInfo, obj):
+                def onGeneralizedObject(contentMetaInfo, objectNamespace):
                     try:
                         self._onSequencedGeneralizedObject(
-                          sequenceNumber, contentMetaInfo, obj)
+                          sequenceNumber, contentMetaInfo, objectNamespace.obj)
                     except:
                         logging.exception("Error in onSequencedGeneralizedObject")
 
