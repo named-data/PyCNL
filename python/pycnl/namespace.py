@@ -650,6 +650,11 @@ class Namespace(object):
         self._decryptor = decryptor
 
     def setHandler(self, handler):
+        if handler == None:
+            # Clear the Handler.
+            self._handler = None
+            return
+
         if self._handler != None:
             # TODO: Should we try to chain handlers?
             raise ValueError("This Namespace node already has a handler")
