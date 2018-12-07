@@ -41,9 +41,9 @@ def main():
     objectPrefix.setFace(face)
 
     enabled = [True]
-    def onGeneralizedObject(contentMetaInfo, obj):
+    def onGeneralizedObject(contentMetaInfo, objectNamespace):
         dump("Got generalized object, content-type",
-             contentMetaInfo.getContentType(), ":", str(obj))
+             contentMetaInfo.getContentType(), ":", str(objectNamespace.obj))
         enabled[0] = False
 
     objectPrefix.setHandler(GeneralizedObjectHandler(onGeneralizedObject)).objectNeeded()
