@@ -136,10 +136,10 @@ class GeneralizedObjectHandler(Namespace.Handler):
         # This will set the object for the _meta Namespace node.
         onDeserialized(contentMetaInfo)
 
-        def onSegmentedObject(obj):
+        def onSegmentedObject(objectNamespace):
             if self._onGeneralizedObject:
                 try:
-                    self._onGeneralizedObject(contentMetaInfo, obj)
+                    self._onGeneralizedObject(contentMetaInfo, objectNamespace.obj)
                 except:
                     logging.exception("Error in onGeneralizedObject")
 
