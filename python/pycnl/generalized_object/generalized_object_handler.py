@@ -59,6 +59,7 @@ class GeneralizedObjectHandler(Namespace.Handler):
         self._segmentedObjectHandler = SegmentedObjectHandler()
         # We'll call onGeneralizedObject if we don't use the SegmentedObjectHandler.
         self._onGeneralizedObject = onGeneralizedObject
+        self._onObjectNeededId = 0
 
     def getSegmentedObjectHandler(self):
         """
@@ -107,7 +108,7 @@ class GeneralizedObjectHandler(Namespace.Handler):
             namespace._setObject(obj)
 
     def _onNamespaceSet(self):
-        self.namespace.addOnObjectNeeded(self._onObjectNeeded)
+        self._onObjectNeededId = self.namespace.addOnObjectNeeded(self._onObjectNeeded)
         # We don't attach the SegmentedObjectHandler until we need it.
 
     def _onObjectNeeded(self, namespace, neededNamespace, id):
@@ -115,6 +116,9 @@ class GeneralizedObjectHandler(Namespace.Handler):
             # Don't respond for child namespaces (including when we call
             # objectNeeded on the _meta child below).
             return False
+
+        # Remove the unused resource.
+        self.namespace.removeCallback(self._onObjectNeededId)
 
         self.namespace[self.NAME_COMPONENT_META].objectNeeded()
         return True
