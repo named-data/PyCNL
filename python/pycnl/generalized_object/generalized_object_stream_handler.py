@@ -254,6 +254,10 @@ class GeneralizedObjectStreamHandler(Namespace.Handler):
             # We are in loop scope, su use a factory function to capture sequenceNumber.
             def makeOnGeneralizedObject(sequenceNumber):
                 def onGeneralizedObject(contentMetaInfo, objectNamespace):
+                    # The Handler is finished, so detach it from the Namespace
+                    # to save resources.
+                    objectNamespace.setHandler(None)
+
                     if self._onSequencedGeneralizedObject != None:
                         try:
                             self._onSequencedGeneralizedObject(
