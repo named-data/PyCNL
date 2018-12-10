@@ -123,13 +123,13 @@ class GeneralizedObjectHandler(Namespace.Handler):
         self.namespace[self.NAME_COMPONENT_META].objectNeeded()
         return True
 
-    def _canDeserialize(self, objectNamespace, blob, onDeserialized):
+    def _canDeserialize(self, metaNamespace, blob, onDeserialized):
         """
         This is called by Namespace when a packet is received. If this is the
         _meta packet, then decode it.
         """
-        if not (len(objectNamespace.name) == len(self.namespace.name) + 1 and
-                objectNamespace.name[-1] == self.NAME_COMPONENT_META):
+        if not (len(metaNamespace.name) == len(self.namespace.name) + 1 and
+                metaNamespace.name[-1] == self.NAME_COMPONENT_META):
             # Not the _meta packet. Ignore.
             return False;
 
@@ -148,21 +148,22 @@ class GeneralizedObjectHandler(Namespace.Handler):
                 except:
                     logging.exception("Error in onGeneralizedObject")
 
+        objectNamespace = metaNamespace.parent
         if contentMetaInfo.getHasSegments():
             # Initiate fetching segments. This will call self._onGeneralizedObject.
             self._segmentedObjectHandler.addOnSegmentedObject(onSegmentedObject)
-            self._segmentedObjectHandler.setNamespace(self.namespace)
+            self._segmentedObjectHandler.setNamespace(objectNamespace)
             # Explicitly request segment 0 to avoid fetching _meta, etc.
-            self.namespace[Name.Component.fromSegment(0)].objectNeeded()
+            objectNamespace[Name.Component.fromSegment(0)].objectNeeded()
 
             # Fetch the _manifest packet.
             # Debug: Verification should be handled by SegmentedObjectHandler.
             # TODO: How does SegmentedObjectHandler consumer know we're using a _manifest?
-            self.namespace[SegmentedObjectHandler.NAME_COMPONENT_MANIFEST].objectNeeded()
+            objectNamespace[SegmentedObjectHandler.NAME_COMPONENT_MANIFEST].objectNeeded()
         else:
             # No segments, so the object is the ContentMetaInfo "other" Blob.
             # Deserialize and call the same callback as the segmentedObjectHandler.
-            self.namespace._deserialize(contentMetaInfo.getOther(), onSegmentedObject)
+            objectNamespace._deserialize(contentMetaInfo.getOther(), onSegmentedObject)
 
         return True
 
