@@ -27,7 +27,7 @@ packets into a single block of memory.
 import logging
 from pyndn import Name
 from pyndn.util.common import Common
-from pycnl.namespace import Namespace
+from pycnl.namespace import Namespace, NamespaceState
 from pycnl.segmented_object_handler import SegmentedObjectHandler
 from pycnl.generalized_object.content_meta_info import ContentMetaInfo
 
@@ -207,18 +207,28 @@ class GeneralizedObjectHandler(Namespace.Handler):
         self.namespace[self.NAME_COMPONENT_META].objectNeeded()
         return True
 
-    def _canDeserialize(self, metaNamespace, blob, onDeserialized):
+    def _canDeserialize(self, blobNamespace, blob, onDeserialized):
         """
         This is called by Namespace when a packet is received. If this is the
         _meta packet, then decode it.
         """
-        if (len(metaNamespace.name) !=
+        if (len(blobNamespace.name) !=
             len(self.namespace.name) + self._nComponentsAfterObjectNamespace + 1):
             # This is not a generalized object packet at the correct level
             # under the Namespace.
             return False;
-        if metaNamespace.name[-1] != self.NAME_COMPONENT_META:
-            # Not the _meta packet. Ignore.
+        if blobNamespace.name[-1] != self.NAME_COMPONENT_META:
+            # Not the _meta packet.
+            if (self._nComponentsAfterObjectNamespace > 0 and
+                (blobNamespace.getName()[-1].isSegment() or
+                 blobNamespace.getName()[-1] == SegmentedObjectHandler.NAME_COMPONENT_MANIFEST)):
+                # This is another packet type for a generalized object and we
+                # did not try to fetch the _meta packet in onObjectNeeded. Try
+                # fetching it if we haven't already.
+                metaNamespace = blobNamespace.getParent()[self.NAME_COMPONENT_META]
+                if metaNamespace.state < NamespaceState.INTEREST_EXPRESSED:
+                    metaNamespace.objectNeeded()
+
             return False;
 
         # Decode the ContentMetaInfo.
@@ -236,7 +246,7 @@ class GeneralizedObjectHandler(Namespace.Handler):
                 except:
                     logging.exception("Error in onGeneralizedObject")
 
-        objectNamespace = metaNamespace.parent
+        objectNamespace = blobNamespace.parent
         if contentMetaInfo.getHasSegments():
             # Initiate fetching segments. This will call self._onGeneralizedObject.
             self._segmentedObjectHandler.addOnSegmentedObject(onSegmentedObject)
