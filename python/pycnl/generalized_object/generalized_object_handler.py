@@ -59,7 +59,22 @@ class GeneralizedObjectHandler(Namespace.Handler):
         self._segmentedObjectHandler = SegmentedObjectHandler()
         # We'll call onGeneralizedObject if we don't use the SegmentedObjectHandler.
         self._onGeneralizedObject = onGeneralizedObject
+        self._allowChildNamespace = False
         self._onObjectNeededId = 0
+
+    def setAllowChildNamespace(self, allowChildNamespace):
+        """
+        Set the allowChildNamespace for fetching the generalized object as
+        described below.
+
+        :param bool allowChildNamespace: If allowChildNamespace is False (the
+          default), then enforce that the _meta and segment nodes are directly
+          under the given Namespace node. If allowChildNamespace is True, allow
+          the _meta and segment packets to be under a child of the given
+          Namespace node, which may not be known until the first _meta packet is
+          fetched.
+        """
+        self._allowChildNamespace = allowChildNamespace
 
     def setObject(self, namespace, obj, contentType):
         """
@@ -171,6 +186,11 @@ class GeneralizedObjectHandler(Namespace.Handler):
         # We don't attach the SegmentedObjectHandler until we need it.
 
     def _onObjectNeeded(self, namespace, neededNamespace, id):
+        if self._allowChildNamespace:
+            # For a child Namespace, we don't know the name of the _meta packet.
+            # Assume the application will make sure the _meta packet is fetched.
+            return False
+
         if neededNamespace != self.namespace:
             # Don't respond for child namespaces (including when we call
             # objectNeeded on the _meta child below).
@@ -187,10 +207,14 @@ class GeneralizedObjectHandler(Namespace.Handler):
         This is called by Namespace when a packet is received. If this is the
         _meta packet, then decode it.
         """
-        if not (len(metaNamespace.name) == len(self.namespace.name) + 1 and
-                metaNamespace.name[-1] == self.NAME_COMPONENT_META):
+        if metaNamespace.name[-1] != self.NAME_COMPONENT_META:
             # Not the _meta packet. Ignore.
             return False;
+        if not self._allowChildNamespace:
+            if len(metaNamespace.name) != len(self.namespace.name) + 1:
+                # If not allowing a child namespace, ignore if _meta is not a
+                # direct child.
+                return False;
 
         # Decode the ContentMetaInfo.
         contentMetaInfo = ContentMetaInfo()
