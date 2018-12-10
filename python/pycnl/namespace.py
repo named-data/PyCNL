@@ -110,15 +110,15 @@ class Namespace(object):
             """
             return self._namespace
 
-        def _canDeserialize(self, objectNamespace, blob, onDeserialized):
+        def _canDeserialize(self, blobNamespace, blob, onDeserialized):
             """
             An internal method to check if this Handler can deserialize the blob
-            in order to set the object for the objectNamespace. This should only
+            in order to set the object for the blobNamespace. This should only
             be called by the Namespace class. This base implementation just
             returns False. The subclass can override.
 
-            :param Namespace objectNamespace: The Namespace node which needs its
-              object deserialized.
+            :param Namespace blobNamespace: The Namespace node which needs its
+              Blob deserialized to an object.
             :param Blob blob: The serialized bytes to deserialize.
             :param onDeserialized: If the Handler can deserialize, it should
               return True and eventually call onDeserialized(obj) with the
