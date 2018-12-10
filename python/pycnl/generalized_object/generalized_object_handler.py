@@ -59,22 +59,28 @@ class GeneralizedObjectHandler(Namespace.Handler):
         self._segmentedObjectHandler = SegmentedObjectHandler()
         # We'll call onGeneralizedObject if we don't use the SegmentedObjectHandler.
         self._onGeneralizedObject = onGeneralizedObject
-        self._allowChildNamespace = False
+        self._nComponentsAfterObjectNamespace = 0
         self._onObjectNeededId = 0
 
-    def setAllowChildNamespace(self, allowChildNamespace):
+    def setNComponentsAfterObjectNamespace(self, nComponentsAfterObjectNamespace):
         """
-        Set the allowChildNamespace for fetching the generalized object as
-        described below.
+        Set the number of name components after the object Namespace for
+        fetching the generalized object, as described below.
 
-        :param bool allowChildNamespace: If allowChildNamespace is False (the
-          default), then enforce that the _meta and segment nodes are directly
-          under the given Namespace node. If allowChildNamespace is True, allow
-          the _meta and segment packets to be under a child of the given
-          Namespace node, which may not be known until the first _meta packet is
-          fetched.
+        :param int nComponentsAfterObjectNamespace: If
+          nComponentsAfterObjectNamespace is zero (the default), then require
+          that the _meta and segment nodes are directly under the given
+          Namespace name for the object. If nComponentsAfterObjectNamespace is
+          greater than zero, allow exactly this number of name components after
+          the given Namespace name but before the _meta and segment packets. In
+          this case, the value of these name components may not be known before
+          the first packet it fetched.
+        :raises RuntimeError: If nComponentsAfterObjectNamespace is negative.
         """
-        self._allowChildNamespace = allowChildNamespace
+        if nComponentsAfterObjectNamespace < 0:
+            raise RuntimeError(
+              "setNComponentsAfterObjectNamespace: The value cannot be negative")
+        self._nComponentsAfterObjectNamespace = nComponentsAfterObjectNamespace
 
     def setObject(self, namespace, obj, contentType):
         """
@@ -186,9 +192,8 @@ class GeneralizedObjectHandler(Namespace.Handler):
         # We don't attach the SegmentedObjectHandler until we need it.
 
     def _onObjectNeeded(self, namespace, neededNamespace, id):
-        if self._allowChildNamespace:
-            # For a child Namespace, we don't know the name of the _meta packet.
-            # Assume the application will make sure the _meta packet is fetched.
+        if self._nComponentsAfterObjectNamespace > 0:
+            # For extra components, we don't know the name of the _meta packet.
             return False
 
         if neededNamespace != self.namespace:
@@ -207,14 +212,14 @@ class GeneralizedObjectHandler(Namespace.Handler):
         This is called by Namespace when a packet is received. If this is the
         _meta packet, then decode it.
         """
+        if (len(metaNamespace.name) !=
+            len(self.namespace.name) + self._nComponentsAfterObjectNamespace + 1):
+            # This is not a generalized object packet at the correct level
+            # under the Namespace.
+            return False;
         if metaNamespace.name[-1] != self.NAME_COMPONENT_META:
             # Not the _meta packet. Ignore.
             return False;
-        if not self._allowChildNamespace:
-            if len(metaNamespace.name) != len(self.namespace.name) + 1:
-                # If not allowing a child namespace, ignore if _meta is not a
-                # direct child.
-                return False;
 
         # Decode the ContentMetaInfo.
         contentMetaInfo = ContentMetaInfo()
