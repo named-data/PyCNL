@@ -68,17 +68,6 @@ class GeneralizedObjectStreamHandler(Namespace.Handler):
         self._generalizedObjectHandler = GeneralizedObjectHandler()
         self._maxReportedSequenceNumber = -1
 
-    def getGeneralizedObjectHandler(self):
-        """
-        Get the GeneralizedObjectHandler which is used to segment an object. You
-        can use this to set parameters such as
-        getGeneralizedObjectHandler().getSegmentedObjectHandler().setMaxSegmentPayloadLength().
-
-        :return: The GeneralizedObjectHandler.
-        :rtype: GeneralizedObjectHandler
-        """
-        return self._generalizedObjectHandler
-
     def setObject(self, sequenceNumber, obj, contentType):
         """
         Prepare the generalized object as a child of the given sequence number
@@ -141,6 +130,29 @@ class GeneralizedObjectStreamHandler(Namespace.Handler):
         """
         self._latestPacketFreshnessPeriod = Common.nonNegativeFloatOrNone(
           latestPacketFreshnessPeriod)
+
+    def getMaxSegmentPayloadLength(self):
+        """
+        Get the maximum length of the payload of one segment, used to split a
+        larger payload into segments (if the ContentMetaInfo hasSegments is
+        True for a particular generalized object).
+
+        :return: The maximum payload length.
+        :rtype: int
+        """
+        # Pass through to the GeneralizedObjectHandler.
+        return self._generalizedObjectHandler.getMaxSegmentPayloadLength()
+
+    def setMaxSegmentPayloadLength(self, maxSegmentPayloadLength):
+        """
+        Set the maximum length of the payload of one segment, used to split a
+        larger payload into segments (if the ContentMetaInfo hasSegments is
+        True for a particular generalized object).
+
+        :param int maxSegmentPayloadLength: The maximum payload length.
+        """
+        # Pass through to the GeneralizedObjectHandler.
+        self._generalizedObjectHandler.setMaxSegmentPayloadLength(maxSegmentPayloadLength)
 
     def _onNamespaceSet(self):
         self._latestNamespace = self.namespace[self.NAME_COMPONENT_LATEST]
