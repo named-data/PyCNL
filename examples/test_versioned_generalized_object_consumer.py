@@ -47,8 +47,8 @@ def main():
              contentMetaInfo.getContentType(), ":", str(objectNamespace.obj))
         enabled[0] = False
     handler = GeneralizedObjectHandler(onGeneralizedObject)
-    # Allow a child Namespace with <version> after the prefix.
-    handler.setAllowChildNamespace(True)
+    # Allow one component after the prefix for the <version>.
+    handler.setNComponentsAfterObjectNamespace(1)
     # In objectNeeded, set mustBeFresh == true so we avoid expired cached data.
     prefix.setHandler(handler).objectNeeded(True)
 
