@@ -61,17 +61,6 @@ class GeneralizedObjectHandler(Namespace.Handler):
         self._onGeneralizedObject = onGeneralizedObject
         self._onObjectNeededId = 0
 
-    def getSegmentedObjectHandler(self):
-        """
-        Get the SegmentedObjectHandler which is used to segment an object and
-        fetch segments. You can use this to set parameters such as
-        getSegmentedObjectHandler().setInterestPipelineSize().
-
-        :return: The SegmentedObjectHandler.
-        :rtype: SegmentedObjectHandler
-        """
-        return self._segmentedObjectHandler
-
     def setObject(self, namespace, obj, contentType):
         """
         Create a _meta packet with the given contentType and as a child of the
@@ -106,6 +95,76 @@ class GeneralizedObjectHandler(Namespace.Handler):
         else:
             # TODO: Do this in a canSerialize callback from Namespace.serializeObject?
             namespace._setObject(obj)
+
+    def getInterestPipelineSize(self):
+        """
+        Get the number of outstanding interests which this maintains while
+        fetching segments (if the ContentMetaInfo hasSegments is True).
+
+        :return: The Interest pipeline size.
+        :rtype: int
+        """
+        # Pass through to the SegmentedObjectHandler.
+        return self._segmentedObjectHandler.getInterestPipelineSize()
+
+    def setInterestPipelineSize(self, interestPipelineSize):
+        """
+        Set the number of outstanding interests which this maintains while
+        fetching segments (if the ContentMetaInfo hasSegments is True).
+
+        :param int interestPipelineSize: The Interest pipeline size.
+        :raises RuntimeError: If interestPipelineSize is less than 1.
+        """
+        # Pass through to the SegmentedObjectHandler.
+        self._segmentedObjectHandler.setInterestPipelineSize(interestPipelineSize)
+
+    def getInitialInterestCount(self):
+        """
+        Get the initial Interest count (if the ContentMetaInfo hasSegments is
+        True), as described in setInitialInterestCount.
+
+        :return: The initial Interest count.
+        :rtype: int
+        """
+        # Pass through to the SegmentedObjectHandler.
+        return self._segmentedObjectHandler.getInitialInterestCount()
+
+    def setInitialInterestCount(self, initialInterestCount):
+        """
+        Set the number of initial Interests to send for segments (if the
+          ContentMetaInfo hasSegments is True). By default
+          this just sends an Interest for the first segment and waits for the
+          response before fetching more segments, but if you know the number of
+          segments you can reduce latency by initially requesting more segments.
+          (However, you should not use a number larger than the Interest
+          pipeline size.)
+
+        :param int initialInterestCount: The initial Interest count.
+        :raises RuntimeError: If initialInterestCount is less than 1.
+        """
+        # Pass through to the SegmentedObjectHandler.
+        self._segmentedObjectHandler.setInitialInterestCount(initialInterestCount)
+
+    def getMaxSegmentPayloadLength(self):
+        """
+        Get the maximum length of the payload of one segment, used to split a
+        larger payload into segments (if the ContentMetaInfo hasSegments is True).
+
+        :return: The maximum payload length.
+        :rtype: int
+        """
+        # Pass through to the SegmentedObjectHandler.
+        return self._segmentedObjectHandler.getMaxSegmentPayloadLength()
+
+    def setMaxSegmentPayloadLength(self, maxSegmentPayloadLength):
+        """
+        Set the maximum length of the payload of one segment, used to split a
+        larger payload into segments (if the ContentMetaInfo hasSegments is True).
+
+        :param int maxSegmentPayloadLength: The maximum payload length.
+        """
+        # Pass through to the SegmentedObjectHandler.
+        self._segmentedObjectHandler.setMaxSegmentPayloadLength(maxSegmentPayloadLength)
 
     def _onNamespaceSet(self):
         self._onObjectNeededId = self.namespace.addOnObjectNeeded(self._onObjectNeeded)
@@ -168,3 +227,7 @@ class GeneralizedObjectHandler(Namespace.Handler):
         return True
 
     NAME_COMPONENT_META = Name.Component("_meta")
+
+    interestPipelineSize = property(getInterestPipelineSize, setInterestPipelineSize)
+    initialInterestCount = property(getInitialInterestCount, setInitialInterestCount)
+    maxSegmentPayloadLength = property(getMaxSegmentPayloadLength, setMaxSegmentPayloadLength)
