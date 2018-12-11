@@ -21,7 +21,8 @@
 This module defines the GeneralizedObjectStreamHandler class which extends
 Namespace::Handler and attaches to a Namespace node to fetch the _latest packet
 and use the name in it to start fetching the stream of generalized object using
-a GeneralizedObjectHandler.
+a GeneralizedObjectHandler. However, if the pipelineSize is zero, continually
+fetch the _latest packet and use its name to fetch the generalized object.
 """
 
 import logging
@@ -38,6 +39,10 @@ class GeneralizedObjectStreamHandler(Namespace.Handler):
     :param int pipelineSize: (optional) The pipeline size (number of objects,
       not interests). The pipelineSize times the expected period between objects
       should be less than the maximum interest lifetime.
+      However, if pipelineSize is zero, continually fetch the _latest packet and
+      use its name to fetch the generalized object. In this case, the producer
+      can call setLatestPacketFreshnessPeriod to set the expected period of
+      producing new generalized objects.
     :param onSequencedGeneralizedObject: (optional) When the ContentMetaInfo is
       received for a new sequence number and the hasSegments is False, this calls
       onSequencedGeneralizedObject(sequenceNumber, contentMetaInfo, objectNamespace)
@@ -58,8 +63,8 @@ class GeneralizedObjectStreamHandler(Namespace.Handler):
     def __init__(self, pipelineSize = 8, onSequencedGeneralizedObject = None):
         super(GeneralizedObjectStreamHandler, self).__init__()
 
-        if pipelineSize < 1:
-            pipelineSize = 1
+        if pipelineSize < 0:
+            pipelineSize = 0
         self._pipelineSize = pipelineSize
         self._onSequencedGeneralizedObject = onSequencedGeneralizedObject
         self._latestNamespace = None
@@ -223,8 +228,27 @@ class GeneralizedObjectStreamHandler(Namespace.Handler):
         # We may already have the target if this was triggered by the producer.
         if targetNamespace.obj == None:
             sequenceNumber = targetName[-1].toSequenceNumber()
-            self._maxReportedSequenceNumber = sequenceNumber - 1
-            self._requestNewSequenceNumbers()
+
+            if self._pipelineSize == 0:
+                # Fetch one generalized object.
+                generalizedObjectHandler = GeneralizedObjectHandler(
+                  self._makeOnGeneralizedObject(sequenceNumber))
+                targetNamespace.setHandler(generalizedObjectHandler)
+                targetNamespace[
+                  GeneralizedObjectHandler.NAME_COMPONENT_META].objectNeeded()
+            else:
+                # Fetch by continuously filling the Interest pipeline.
+                self._maxReportedSequenceNumber = sequenceNumber - 1
+                self._requestNewSequenceNumbers()
+
+        if self._pipelineSize == 0:
+            # Schedule to fetch the next _latest packet.
+            freshnessPeriod = changedNamespace.getData().getMetaInfo().getFreshnessPeriod()
+            if freshnessPeriod == None or freshnessPeriod < 0:
+                # No freshness period. We don't expect this.
+                return
+            self._latestNamespace._getFace().callLater(
+              freshnessPeriod / 2, lambda: self._latestNamespace.objectNeeded(True));
 
     def _requestNewSequenceNumbers(self):
         """
@@ -263,30 +287,34 @@ class GeneralizedObjectStreamHandler(Namespace.Handler):
                 continue
 
             nRequestedSequenceNumbers += 1
-            # We are in loop scope, su use a factory function to capture sequenceNumber.
-            def makeOnGeneralizedObject(sequenceNumber):
-                def onGeneralizedObject(contentMetaInfo, objectNamespace):
-                    # The Handler is finished, so detach it from the Namespace
-                    # to save resources.
-                    objectNamespace.setHandler(None)
-
-                    if self._onSequencedGeneralizedObject != None:
-                        try:
-                            self._onSequencedGeneralizedObject(
-                              sequenceNumber, contentMetaInfo, objectNamespace)
-                        except:
-                            logging.exception("Error in onSequencedGeneralizedObject")
-
-                    if sequenceNumber > self._maxReportedSequenceNumber:
-                        self._maxReportedSequenceNumber = sequenceNumber
-                    self._requestNewSequenceNumbers()
-                return onGeneralizedObject
 
             # Debug: Do we have to attach a new handler for each sequence number?
             generalizedObjectHandler = GeneralizedObjectHandler(
-              makeOnGeneralizedObject(sequenceNumber))
+              self._makeOnGeneralizedObject(sequenceNumber))
             sequenceNamespace.setHandler(generalizedObjectHandler)
             sequenceMeta.objectNeeded()
+
+    def _makeOnGeneralizedObject(self, sequenceNumber):
+        def onGeneralizedObject(contentMetaInfo, objectNamespace):
+            # The Handler is finished, so detach it from the Namespace
+            # to save resources.
+            objectNamespace.setHandler(None)
+
+            if self._onSequencedGeneralizedObject != None:
+                try:
+                    self._onSequencedGeneralizedObject(
+                      sequenceNumber, contentMetaInfo, objectNamespace)
+                except:
+                    logging.exception("Error in onSequencedGeneralizedObject")
+
+            if sequenceNumber > self._maxReportedSequenceNumber:
+                self._maxReportedSequenceNumber = sequenceNumber
+
+            if self._pipelineSize > 0:
+                # Continue to fetch by filling the pipeline.
+                self._requestNewSequenceNumbers()
+
+        return onGeneralizedObject
 
     NAME_COMPONENT_LATEST = Name.Component("_latest")
 
