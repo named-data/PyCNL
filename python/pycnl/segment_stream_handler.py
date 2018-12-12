@@ -24,7 +24,8 @@ segments in order.
 """
 
 import logging
-from pyndn import Name
+from pyndn import Name, Data, DigestSha256Signature
+from pyndn.util import Blob
 from pycnl.namespace import Namespace, NamespaceState
 
 class SegmentStreamHandler(Namespace.Handler):
@@ -46,6 +47,8 @@ class SegmentStreamHandler(Namespace.Handler):
         self._onSegmentCallbacks = {}
         self._onObjectNeededId = 0
         self._onStateChangedId = 0
+        self._maxSegmentPayloadLength = 8192
+        self._maxSegmentPayloadLength = 5 # debug
 
         if onSegment != None:
             self.addOnSegment(onSegment)
@@ -128,6 +131,100 @@ class SegmentStreamHandler(Namespace.Handler):
             raise RuntimeError("The initial Interest count must be at least 1")
         self._initialInterestCount = initialInterestCount
 
+    def getMaxSegmentPayloadLength(self):
+        """
+        Get the maximum length of the payload of one segment, used to split a
+        larger payload into segments.
+
+        :return: The maximum payload length.
+        :rtype: int
+        """
+        return self._maxSegmentPayloadLength
+
+    def setMaxSegmentPayloadLength(self, maxSegmentPayloadLength):
+        """
+        Set the maximum length of the payload of one segment, used to split a
+        larger payload into segments.
+
+        :param int maxSegmentPayloadLength: The maximum payload length.
+        """
+        if maxSegmentPayloadLength < 1:
+            raise RuntimeError("The maximum segment payload length must be at least 1")
+        self._maxSegmentPayloadLength = maxSegmentPayloadLength
+
+    def setObject(self, namespace, obj, useSignatureManifest = False):
+        """
+        Segment the object and create child segment packets of the given Namespace.
+
+        :param Namespace namespace: The Namespace to append segment packets to.
+          This ignores the Namespace from setNamespace().
+        :param Blob obj: The object to segment.
+        :param bool useSignatureManifest: (optional) If True, only use a
+          DigestSha256Signature on the segment packets and create a signed
+          _manifest packet as a child of the given Namespace. If omitted or
+          False, sign each segment packet individually.
+        """
+        keyChain = namespace._getKeyChain()
+        if keyChain == None:
+            raise RuntimeError("SegmentedObjectHandler.setObject: There is no KeyChain")
+
+        # Get the final block ID.
+        finalSegment = 0
+        # Instead of a brute calculation, imitate the loop we will use below.
+        segment = 0
+        offset = 0
+        while offset < obj.size():
+            finalSegment = segment
+            segment += 1
+            offset += self._maxSegmentPayloadLength
+        finalBlockId = Name().appendSegment(finalSegment)[0]
+
+        SHA256_DIGEST_SIZE = 32
+        if useSignatureManifest:
+            # Get ready to save the segment implicit digests.
+            manifestContent = bytearray((finalSegment + 1) * SHA256_DIGEST_SIZE)
+
+            # Use a DigestSha256Signature with all zeros.
+            digestSignature = DigestSha256Signature()
+            digestSignature.setSignature(Blob(bytearray(SHA256_DIGEST_SIZE)))
+
+        segment = 0
+        offset = 0
+        while offset < obj.size():
+            payloadLength = self._maxSegmentPayloadLength
+            if offset + payloadLength > obj.size():
+                payloadLength = obj.size() - offset
+
+            # Make the Data packet.
+            segmentNamespace = namespace[Name.Component.fromSegment(segment)]
+            data = Data(segmentNamespace.getName())
+            data.getMetaInfo().setFinalBlockId(finalBlockId)
+            data.setContent(obj.toBytes()[offset:offset + payloadLength])
+
+            if useSignatureManifest:
+                data.setSignature(digestSignature)
+
+                # Append the implicit digest to the manifestContent.
+                implicitDigest = data.getFullName()[-1].getValue()
+                digestOffset = segment * SHA256_DIGEST_SIZE
+                manifestContent[digestOffset:digestOffset + SHA256_DIGEST_SIZE] = \
+                  implicitDigest.toBytes()[:]
+            else:
+                keyChain.sign(data)
+
+            segmentNamespace.setData(data)
+
+            segment += 1
+            offset += self._maxSegmentPayloadLength
+
+        if useSignatureManifest:
+            # Create the _manifest data packet.
+            namespace[self.NAME_COMPONENT_MANIFEST].serializeObject(
+              Blob(manifestContent))
+
+        # TODO: Do this in a canSerialize callback from Namespace.serializeObject?
+        namespace._setObject(obj)
+
     def _onNamespaceSet(self):
         self._onObjectNeededId = self.namespace.addOnObjectNeeded(
           self._onObjectNeeded)
@@ -170,6 +267,14 @@ class SegmentStreamHandler(Namespace.Handler):
 
             self._maxReportedSegmentNumber = nextSegmentNumber
             self._fireOnSegment(nextSegment)
+
+            if isinstance(nextSegment.getData().getSignature(),
+                          DigestSha256Signature):
+                # Assume we are using a signature _manifest.
+                manifestNamespace = self.namespace[self.NAME_COMPONENT_MANIFEST]
+                if manifestNamespace.getState() < NamespaceState.INTEREST_EXPRESSED:
+                    # We haven't requested the signature _manifest yet.
+                    manifestNamespace.objectNeeded()
 
             if (self._finalSegmentNumber != None and
                 nextSegmentNumber == self._finalSegmentNumber):
@@ -232,5 +337,9 @@ class SegmentStreamHandler(Namespace.Handler):
                 except:
                     logging.exception("Error in onSegment")
 
+
+    NAME_COMPONENT_MANIFEST = Name.Component("_manifest")
+
     interestPipelineSize = property(getInterestPipelineSize, setInterestPipelineSize)
     initialInterestCount = property(getInitialInterestCount, setInitialInterestCount)
+    maxSegmentPayloadLength = property(getMaxSegmentPayloadLength, setMaxSegmentPayloadLength)
