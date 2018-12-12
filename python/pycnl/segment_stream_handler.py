@@ -48,7 +48,6 @@ class SegmentStreamHandler(Namespace.Handler):
         self._onObjectNeededId = 0
         self._onStateChangedId = 0
         self._maxSegmentPayloadLength = 8192
-        self._maxSegmentPayloadLength = 5 # debug
 
         if onSegment != None:
             self.addOnSegment(onSegment)
