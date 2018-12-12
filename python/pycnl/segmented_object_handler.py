@@ -26,7 +26,7 @@ block of memory.
 import logging
 from pyndn import Name, Data, DigestSha256Signature
 from pyndn.util import Blob
-from pycnl.namespace import Namespace
+from pycnl.namespace import Namespace, NamespaceState
 from pycnl.segment_stream_handler import SegmentStreamHandler
 
 class SegmentedObjectHandler(SegmentStreamHandler):
@@ -182,6 +182,14 @@ class SegmentedObjectHandler(SegmentStreamHandler):
         if segmentNamespace != None:
             self._segments.append(segmentNamespace.getObject())
             self._totalSize += segmentNamespace.getObject().size()
+
+            if isinstance(segmentNamespace.getData().getSignature(),
+                          DigestSha256Signature):
+                # Assume we are using a signature _manifest.
+                manifestNamespace = self.namespace[self.NAME_COMPONENT_MANIFEST]
+                if manifestNamespace.getState() < NamespaceState.INTEREST_EXPRESSED:
+                    # We haven't requested the signature _manifest yet.
+                    manifestNamespace.objectNeeded()
         else:
             # Concatenate the segments.
             content = bytearray(self._totalSize)
