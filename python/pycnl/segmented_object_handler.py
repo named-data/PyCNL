@@ -130,7 +130,7 @@ class SegmentedObjectHandler(SegmentStreamHandler):
 
         SHA256_DIGEST_SIZE = 32
         if useSignatureManifest:
-            # Get ready to save the segment payload digests.
+            # Get ready to save the segment implicit digests.
             manifestContent = bytearray((finalSegment + 1) * SHA256_DIGEST_SIZE)
 
             # Use a DigestSha256Signature with all zeros.
