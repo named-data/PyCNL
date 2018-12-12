@@ -203,6 +203,15 @@ class GeneralizedObjectStreamHandler(Namespace.Handler):
         This is called when a packet arrives. Parse the _latest packet and start
         fetching the stream of GeneralizedObject by sequence number.
         """
+        if ((state == NamespaceState.INTEREST_TIMEOUT or
+             state == NamespaceState.INTEREST_NETWORK_NACK) and
+            changedNamespace == self._latestNamespace):
+            # Timeout or network NACK, so try to fetch again.
+            self._latestNamespace._getFace().callLater(
+              self._latestPacketFreshnessPeriod,
+              lambda: self._latestNamespace.objectNeeded(True));
+            return
+
         if (not (state == NamespaceState.OBJECT_READY and
                  changedNamespace.name.size() ==
                    self._latestNamespace.name.size() + 1 and
