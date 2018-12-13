@@ -165,7 +165,7 @@ class SegmentStreamHandler(Namespace.Handler):
         """
         keyChain = namespace._getKeyChain()
         if keyChain == None:
-            raise RuntimeError("SegmentedObjectHandler.setObject: There is no KeyChain")
+            raise RuntimeError("SegmentStreamHandler.setObject: There is no KeyChain")
 
         # Get the final block ID.
         finalSegment = 0
@@ -223,6 +223,41 @@ class SegmentStreamHandler(Namespace.Handler):
 
         # TODO: Do this in a canSerialize callback from Namespace.serializeObject?
         namespace._setObject(obj)
+
+    @staticmethod
+    def verifyWithManifest(namespace):
+        """
+        Get the list of implicit digests from the _manifest packet and use it to
+        verify the segment implicit digests.
+
+        :param Namespace namespace: The Namespace with child _manifest and
+          segments.
+        :return: True if the segment digests verify, False if not.
+        :rtype: bool
+        """
+        SHA256_DIGEST_SIZE = 32
+
+        manifestContent = namespace[
+          SegmentStreamHandler.NAME_COMPONENT_MANIFEST].obj.buf()
+        nSegments = len(manifestContent) / SHA256_DIGEST_SIZE
+        if len(manifestContent) != nSegments * SHA256_DIGEST_SIZE:
+            # The manifest size is not a multiple of the digest size as expected.
+            return False
+
+        for segment in range(nSegments):
+            segmentNamespace = namespace[Name.Component.fromSegment(segment)]
+            segmentDigest = segmentNamespace.getData().getFullName()[-1].getValue().buf()
+            if len(segmentDigest) != SHA256_DIGEST_SIZE:
+                # We don't expect this.
+                return False
+            # To avoid copying, manually compare elements instead of making a Blob.
+            manifestDigestStart = segment * SHA256_DIGEST_SIZE
+            for i in range(SHA256_DIGEST_SIZE):
+                if (segmentDigest[i] !=
+                    manifestContent[manifestDigestStart + i]):
+                    return False
+
+        return True
 
     def _onNamespaceSet(self):
         self._onObjectNeededId = self.namespace.addOnObjectNeeded(
