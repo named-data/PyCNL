@@ -18,9 +18,8 @@
 # A copy of the GNU Lesser General Public License is in the file COPYING.
 
 """
-This registers with the local NFD to produce a stream of generalized object
- * test data for test_generalized_object_stream consumer (which must be run
- * separately).
+This registers with the local NFD to produce a stream of generalized object test
+data for test_generalized_object_stream consumer (which must be run separately).
 """
 
 import time
