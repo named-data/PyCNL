@@ -71,6 +71,8 @@ class GeneralizedObjectStreamHandler(Namespace.Handler):
         self._producedSequenceNumber = -1
         self._latestPacketFreshnessPeriod = 1000.0
         self._generalizedObjectHandler = GeneralizedObjectHandler()
+        self._nRequestedSequenceNumbers = 0
+        self._nReportedSequenceNumbers = 0
         self._maxReportedSequenceNumber = -1
 
     def setObject(self, sequenceNumber, obj, contentType):
@@ -263,28 +265,12 @@ class GeneralizedObjectStreamHandler(Namespace.Handler):
         """
         Request new child sequence numbers, up to the pipelineSize_.
         """
-        childComponents = self.namespace.getChildComponents()
-        # First, count how many are already requested and not received.
-        nRequestedSequenceNumbers = 0
-        # Debug: Track the max requested (and don't search all children).
-        for component in childComponents:
-            if not component.isSequenceNumber():
-                # The namespace contains a child other than a sequence number. Ignore.
-                continue
-
-            # TODO: Should the child sequence be set to INTEREST_EXPRESSED along with _meta?
-            metaChild = self.namespace[component][
-              GeneralizedObjectHandler.NAME_COMPONENT_META]
-            if (metaChild.data == None and
-                metaChild.state >= NamespaceState.INTEREST_EXPRESSED):
-                nRequestedSequenceNumbers += 1
-                if nRequestedSequenceNumbers >= self._pipelineSize:
-                    # Already maxed out on requests.
-                    break
+        nOutstandingSequenceNumbers = (self._nRequestedSequenceNumbers -
+          self._nReportedSequenceNumbers)
 
         # Now find unrequested sequence numbers and request.
         sequenceNumber = self._maxReportedSequenceNumber
-        while nRequestedSequenceNumbers < self._pipelineSize:
+        while nOutstandingSequenceNumbers < self._pipelineSize:
             sequenceNumber += 1
             sequenceNamespace = self.namespace[
               Name.Component.fromSequenceNumber(sequenceNumber)]
@@ -295,7 +281,8 @@ class GeneralizedObjectStreamHandler(Namespace.Handler):
                 # Already got the data packet or already requested.
                 continue
 
-            nRequestedSequenceNumbers += 1
+            nOutstandingSequenceNumbers += 1
+            self._nRequestedSequenceNumbers += 1
 
             # Debug: Do we have to attach a new handler for each sequence number?
             generalizedObjectHandler = GeneralizedObjectHandler(
@@ -316,6 +303,7 @@ class GeneralizedObjectStreamHandler(Namespace.Handler):
                 except:
                     logging.exception("Error in onSequencedGeneralizedObject")
 
+            self._nReportedSequenceNumbers += 1
             if sequenceNumber > self._maxReportedSequenceNumber:
                 self._maxReportedSequenceNumber = sequenceNumber
 
