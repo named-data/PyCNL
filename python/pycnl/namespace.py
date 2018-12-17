@@ -1100,6 +1100,7 @@ class Namespace(object):
     validationError = property(getValidationError)
     decryptionError = property(getDecryptionError)
     signingError = property(getSigningError)
+    childComponents = property(getChildComponents)
     data = property(getData)
     # object is a special Python term, so use obj .
     obj = property(getObject)
