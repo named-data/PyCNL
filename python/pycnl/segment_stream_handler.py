@@ -197,7 +197,13 @@ class SegmentStreamHandler(Namespace.Handler):
             # Make the Data packet.
             segmentNamespace = namespace[Name.Component.fromSegment(segment)]
             data = Data(segmentNamespace.getName())
+
+            metaInfo = namespace._getNewDataMetaInfo()
+            if metaInfo != None:
+                # Start with a copy of the provided MetaInfo.
+                data.setMetaInfo(metaInfo)
             data.getMetaInfo().setFinalBlockId(finalBlockId)
+
             data.setContent(obj.toBytes()[offset:offset + payloadLength])
 
             if useSignatureManifest:
