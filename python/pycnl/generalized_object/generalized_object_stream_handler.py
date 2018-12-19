@@ -242,11 +242,14 @@ class GeneralizedObjectStreamHandler(Namespace.Handler):
 
             if self._pipelineSize == 0:
                 # Fetch one generalized object.
-                generalizedObjectHandler = GeneralizedObjectHandler(
-                  self._makeOnGeneralizedObject(sequenceNumber))
-                targetNamespace.setHandler(generalizedObjectHandler)
-                targetNamespace[
-                  GeneralizedObjectHandler.NAME_COMPONENT_META].objectNeeded()
+                sequenceMeta = targetNamespace[
+                  GeneralizedObjectHandler.NAME_COMPONENT_META]
+                # Make sure we didn't already request it.
+                if sequenceMeta.state < NamespaceState.INTEREST_EXPRESSED:
+                    generalizedObjectHandler = GeneralizedObjectHandler(
+                      self._makeOnGeneralizedObject(sequenceNumber))
+                    targetNamespace.setHandler(generalizedObjectHandler)
+                    sequenceMeta.objectNeeded()
             else:
                 # Fetch by continuously filling the Interest pipeline.
                 self._maxReportedSequenceNumber = sequenceNumber - 1
