@@ -657,7 +657,7 @@ class Namespace(object):
 
         if self._handler != None:
             # TODO: Should we try to chain handlers?
-            raise ValueError("This Namespace node already has a handler")
+            raise ValueError("This Namespace node already has a handler: " + self.name.toUri())
 
         handler.setNamespace(self)
         self._handler = handler
