@@ -72,6 +72,7 @@ class GeneralizedObjectStreamHandler(Namespace.Handler):
         self._latestPacketFreshnessPeriod = 1000.0
         self._generalizedObjectHandler = GeneralizedObjectHandler()
         self._nRequestedSequenceNumbers = 0
+        self._maxRequestedSequenceNumber = -1
         self._nReportedSequenceNumbers = 0
         self._maxReportedSequenceNumber = -1
 
@@ -205,14 +206,25 @@ class GeneralizedObjectStreamHandler(Namespace.Handler):
         This is called when a packet arrives. Parse the _latest packet and start
         fetching the stream of GeneralizedObject by sequence number.
         """
-        if ((state == NamespaceState.INTEREST_TIMEOUT or
-             state == NamespaceState.INTEREST_NETWORK_NACK) and
-            changedNamespace == self._latestNamespace):
-            # Timeout or network NACK, so try to fetch again.
-            self._latestNamespace._getFace().callLater(
-              self._latestPacketFreshnessPeriod,
-              lambda: self._latestNamespace.objectNeeded(True));
-            return
+        if (state == NamespaceState.INTEREST_TIMEOUT or
+             state == NamespaceState.INTEREST_NETWORK_NACK):
+            if changedNamespace == self._latestNamespace:
+                # Timeout or network NACK, so try to fetch again.
+                self._latestNamespace._getFace().callLater(
+                  self._latestPacketFreshnessPeriod,
+                  lambda: self._latestNamespace.objectNeeded(True));
+                return
+            elif (self._pipelineSize > 0 and
+                  changedNamespace.name.size() == self.namespace.name.size() + 2 and
+                  changedNamespace.name[-1].equals(
+                    GeneralizedObjectHandler.NAME_COMPONENT_META) and
+                  changedNamespace.name[-2].isSequenceNumber() and
+                  changedNamespace.name[-2].toSequenceNumber() ==
+                    self._maxRequestedSequenceNumber):
+                # The highest pipelined request timed out, so request the _latest.
+                # TODO: Should we do this for the lowest requested?
+                self._latestNamespace.objectNeeded(True)
+                return
 
         if (not (state == NamespaceState.OBJECT_READY and
                  changedNamespace.name.size() ==
@@ -253,6 +265,8 @@ class GeneralizedObjectStreamHandler(Namespace.Handler):
             else:
                 # Fetch by continuously filling the Interest pipeline.
                 self._maxReportedSequenceNumber = sequenceNumber - 1
+                # Reset the pipeline in case we are resuming after a timeout.
+                self._nRequestedSequenceNumbers = self._nReportedSequenceNumbers
                 self._requestNewSequenceNumbers()
 
         if self._pipelineSize == 0:
@@ -291,6 +305,8 @@ class GeneralizedObjectStreamHandler(Namespace.Handler):
             generalizedObjectHandler = GeneralizedObjectHandler(
               self._makeOnGeneralizedObject(sequenceNumber))
             sequenceNamespace.setHandler(generalizedObjectHandler)
+            if sequenceNumber > self._maxRequestedSequenceNumber:
+                self._maxRequestedSequenceNumber = sequenceNumber
             sequenceMeta.objectNeeded()
 
     def _makeOnGeneralizedObject(self, sequenceNumber):
