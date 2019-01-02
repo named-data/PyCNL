@@ -1,6 +1,6 @@
 # -*- Mode:python; c-file-style:"gnu"; indent-tabs-mode:nil -*- */
 #
-# Copyright (C) 2018 Regents of the University of California.
+# Copyright (C) 2018-2019 Regents of the University of California.
 # Author: Jeff Thompson <jefft0@remap.ucla.edu>
 #
 # This program is free software: you can redistribute it and/or modify
@@ -23,7 +23,7 @@ data for test_generalized_object_stream consumer (which must be run separately).
 """
 
 import time
-from pyndn import Name, Face
+from pyndn import Name, Face, MetaInfo
 from pyndn.util import Blob
 from pyndn.util.common import Common
 from pyndn.security import KeyChain, SafeBag
@@ -151,9 +151,13 @@ def main():
        Blob(DEFAULT_RSA_PUBLIC_KEY_DER, False)))
     face.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName())
 
-    publishIntervalMs = 1000.0
+    publishIntervalMs = 33.0
     stream = Namespace("/ndn/eb/stream/run/28/annotations", keyChain)
+    metaInfo = MetaInfo()
+    metaInfo.setFreshnessPeriod(1000)
+    stream.setNewDataMetaInfo(metaInfo)
     handler = GeneralizedObjectStreamHandler()
+    handler.latestPacketFreshnessPeriod = 30 # Debug: Is this necessary?
     stream.setHandler(handler)
 
     dump("Register prefix", stream.name)
@@ -161,21 +165,36 @@ def main():
     stream.setFace(face,
       lambda prefixName: dump("Register failed for prefix", prefixName))
 
+    payload = Blob(bytearray(10000), False)
+
     # Loop, producing a new object every previousPublishMs milliseconds (and
     # also calling processEvents()).
     previousPublishMs = 0
+    debugPublishing = True
     while True:
         now = Common.getNowMilliseconds()
         if now >= previousPublishMs + publishIntervalMs:
+            debugPublishing = True
             dump("Preparing data for sequence",
-              handler.getProducedSequenceNumber() + 1)
-            handler.addObject(
-              Blob("Payload " + str(handler.getProducedSequenceNumber() + 1)),
-              "application/json")
+              handler.producedSequenceNumber + 1)
+            handler.addObject(payload, "application/json")
+
+            if handler.producedSequenceNumber > 500:
+                # Debug: Free old data.
+                expiredNamespace = stream[
+                  Name.Component.fromSequenceNumber(handler.producedSequenceNumber - 500)]
+                expiredNamespace._object = None
+                expiredNamespace._children = {}
+                expiredNamespace._sortedChildrenKeys = []
+                expiredNamespace._handler = None
 
             previousPublishMs = now
+            if handler.producedSequenceNumber == 200:
+                debugPublishing = False
+                previousPublishMs += 20000
 
-        face.processEvents()
+        if debugPublishing:
+            face.processEvents()
         # We need to sleep for a few milliseconds so we don't use 100% of the CPU.
         time.sleep(0.01)
 

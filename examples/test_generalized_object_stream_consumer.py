@@ -1,6 +1,6 @@
 # -*- Mode:python; c-file-style:"gnu"; indent-tabs-mode:nil -*- */
 #
-# Copyright (C) 2018 Regents of the University of California.
+# Copyright (C) 2018-2019 Regents of the University of California.
 # Author: Jeff Thompson <jefft0@remap.ucla.edu>
 #
 # This program is free software: you can redistribute it and/or modify
@@ -38,12 +38,15 @@ def main():
     face = Face()
 
     stream = Namespace("/ndn/eb/stream/run/28/annotations")
+    stream.setMaxInterestLifetime(4000.0)
     stream.setFace(face)
 
     def onNewObject(sequenceNumber, contentMetaInfo, objectNamespace):
         dump("Got generalized object, sequenceNumber", sequenceNumber,
-             ", content-type", contentMetaInfo.getContentType(), ":",
-             str(objectNamespace.obj))
+             ", content-type", contentMetaInfo.getContentType(), ", size",
+             objectNamespace.obj.size())
+        objectNamespace._object = None
+        objectNamespace._children = {}
     pipelineSize = 10
     stream.setHandler(
       GeneralizedObjectStreamHandler(pipelineSize, onNewObject)).objectNeeded()
