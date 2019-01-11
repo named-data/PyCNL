@@ -38,15 +38,12 @@ def main():
     face = Face()
 
     stream = Namespace("/ndn/eb/stream/run/28/annotations")
-    stream.setMaxInterestLifetime(4000.0)
     stream.setFace(face)
 
     def onNewObject(sequenceNumber, contentMetaInfo, objectNamespace):
         dump("Got generalized object, sequenceNumber", sequenceNumber,
-             ", content-type", contentMetaInfo.getContentType(), ", size",
-             objectNamespace.obj.size())
-        objectNamespace._object = None
-        objectNamespace._children = {}
+             ", content-type", contentMetaInfo.getContentType(), ":",
+             str(objectNamespace.obj))
     pipelineSize = 10
     stream.setHandler(
       GeneralizedObjectStreamHandler(pipelineSize, onNewObject)).objectNeeded()
