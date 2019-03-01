@@ -161,7 +161,7 @@ def main():
     stream.setFace(face,
       lambda prefixName: dump("Register failed for prefix", prefixName))
 
-    # Loop, producing a new object every previousPublishMs milliseconds (and
+    # Loop, producing a new object every publishIntervalMs milliseconds (and
     # also calling processEvents()).
     previousPublishMs = 0
     while True:
