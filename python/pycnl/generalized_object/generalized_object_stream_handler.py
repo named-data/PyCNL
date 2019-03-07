@@ -223,6 +223,9 @@ class GeneralizedObjectStreamHandler(Namespace.Handler):
                     self._maxRequestedSequenceNumber):
                 # The highest pipelined request timed out, so request the _latest.
                 # TODO: Should we do this for the lowest requested?
+                logging.getLogger(__name__).info(
+                  "GeneralizedObjectStreamHandler: Requesting _latest because the highest pipelined request timed out: " +
+                  changedNamespace.name.toUri())
                 self._latestNamespace.objectNeeded(True)
                 return
 
