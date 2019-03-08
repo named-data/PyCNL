@@ -208,6 +208,9 @@ class GeneralizedObjectStreamHandler(Namespace.Handler):
         """
         if (state == NamespaceState.INTEREST_TIMEOUT or
              state == NamespaceState.INTEREST_NETWORK_NACK):
+            logging.getLogger(__name__).info(
+              "GeneralizedObjectStreamHandler: Got timeout or nack for " +
+              changedNamespace.name.toUri())
             if changedNamespace == self._latestNamespace:
                 # Timeout or network NACK, so try to fetch again.
                 self._latestNamespace._getFace().callLater(
