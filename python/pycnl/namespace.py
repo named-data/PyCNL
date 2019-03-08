@@ -25,6 +25,7 @@ the name tree and related operations to manage it.
 import bisect
 import threading
 import logging
+import time
 from pyndn import Name, Interest, Data, MetaInfo
 from pyndn.util import Blob, ExponentialReExpress
 from pyndn.util.common import Common
@@ -1047,6 +1048,7 @@ class Namespace(object):
         return None
 
     def _onData(self, interest, data):
+        startSeconds = time.clock()
         dataNamespace = self[data.name]
         if not dataNamespace.setData(data):
             # A Data packet is already attached.
@@ -1059,6 +1061,11 @@ class Namespace(object):
         decryptor = dataNamespace._getDecryptor()
         if decryptor == None:
             dataNamespace._deserialize(data.content, None)
+            elapsedSeconds = time.clock() - startSeconds
+            if elapsedSeconds > 0.5:
+                logging.getLogger(__name__).debug(
+                  "Namespace: Incoming Data processed in " + str(elapsedSeconds) +
+                  " secs: " + data.name.toUri())
             return
 
         # Decrypt, then deserialize.
