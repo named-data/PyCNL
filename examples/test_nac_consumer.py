@@ -23,7 +23,7 @@ Access Control (NAC), provided by test_nac_producer (which must be running).
 """
 
 import time
-from pyndn import Name, Face
+from pyndn import Name, Interest, Face
 from pyndn.util import Blob
 from pyndn.security import KeyChain, SafeBag
 from pyndn.security import ValidatorNull
@@ -142,6 +142,9 @@ def dump(*list):
     print(result)
 
 def main():
+    # Silence the warning from Interest wire encode.
+    Interest.setDefaultCanBePrefix(True)
+
     # The default Face will connect using a Unix socket, or to "localhost".
     face = Face()
 

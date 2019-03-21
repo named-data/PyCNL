@@ -22,7 +22,7 @@ This tests updating a namespace based on segmented content.
 """
 
 import time
-from pyndn import Face
+from pyndn import Interest, Face
 from pycnl import Namespace, SegmentedObjectHandler
 
 def dump(*list):
@@ -32,6 +32,9 @@ def dump(*list):
     print(result)
 
 def main():
+    # Silence the warning from Interest wire encode.
+    Interest.setDefaultCanBePrefix(True)
+
     face = Face("memoria.ndn.ucla.edu")
     page = Namespace("/ndn/edu/ucla/remap/demo/ndn-js-test/named-data.net/project/ndn-ar2011.html/%FDT%F7n%9E")
     page.setFace(face)

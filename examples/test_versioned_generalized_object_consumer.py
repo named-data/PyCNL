@@ -23,7 +23,7 @@ test_versioned_generalized_object_producer (which must be running).
 """
 
 import time
-from pyndn import Face
+from pyndn import Interest, Face
 from pycnl import Namespace
 from pycnl.generalized_object import GeneralizedObjectHandler
 
@@ -34,6 +34,9 @@ def dump(*list):
     print(result)
 
 def main():
+    # Silence the warning from Interest wire encode.
+    Interest.setDefaultCanBePrefix(True)
+
     # The default Face will connect using a Unix socket, or to "localhost".
     face = Face()
 
