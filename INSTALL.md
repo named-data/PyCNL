@@ -5,6 +5,17 @@ Prerequisites
 =============
 * Required: Python 2.7 or later
 * Required: PyNDN 2.x
+* Required: The pip module
+* Required: The cryptography package
+* Optional: trollius (for asyncio in Python <= 3.2)
+* Optional: Protobuf (for the ProtobufTlv converter and ChronoSync)
+* Optional: Murmur hash 3 (for PSync)
+* Optional: Sphinx (to make documentation)
+* Optional: pytest and mock (for running unit tests)
+* Optional: python-dev, libcrypto (for the _pyndn C module)
+
+The steps to install the prerequisites are the same as to build and install PyNDN.
+Please see https://github.com/named-data/PyNDN2/blob/master/INSTALL.md .
 
 Build
 =====
