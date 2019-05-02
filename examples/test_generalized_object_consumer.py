@@ -46,7 +46,7 @@ def main():
     enabled = [True]
     def onGeneralizedObject(contentMetaInfo, objectNamespace):
         dump("Got generalized object, content-type",
-             contentMetaInfo.getContentType(), ":", str(objectNamespace.obj))
+             contentMetaInfo.contentType, ":", str(objectNamespace.obj))
         enabled[0] = False
 
     objectPrefix.setHandler(GeneralizedObjectHandler(onGeneralizedObject)).objectNeeded()

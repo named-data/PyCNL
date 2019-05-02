@@ -45,7 +45,7 @@ def main():
 
     def onNewObject(sequenceNumber, contentMetaInfo, objectNamespace):
         dump("Got generalized object, sequenceNumber", sequenceNumber,
-             ", content-type", contentMetaInfo.getContentType(), ":",
+             ", content-type", contentMetaInfo.contentType, ":",
              str(objectNamespace.obj))
     pipelineSize = 10
     stream.setHandler(

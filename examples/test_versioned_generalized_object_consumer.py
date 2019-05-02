@@ -47,7 +47,7 @@ def main():
     # This is called to print the content after it is re-assembled from segments.
     def onGeneralizedObject(contentMetaInfo, objectNamespace):
         dump("Got generalized object", objectNamespace.name, ", content-type",
-             contentMetaInfo.getContentType(), ":", str(objectNamespace.obj))
+             contentMetaInfo.contentType, ":", str(objectNamespace.obj))
         enabled[0] = False
     handler = GeneralizedObjectHandler(onGeneralizedObject)
     # Allow one component after the prefix for the <version>.
