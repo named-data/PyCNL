@@ -181,3 +181,9 @@ class ContentMetaInfo(object):
         self._hasSegments = meta.content_meta_info.has_segments
         if len(meta.content_meta_info.other) > 0:
             self._other = Blob(bytearray(meta.content_meta_info.other), False)
+
+    # Create managed properties for read/write properties of the class for more pythonic syntax.
+    contentType = property(getContentType, setContentType)
+    timestamp = property(getTimestamp, setTimestamp)
+    hasSegments = property(getHasSegments, setHasSegments)
+    other = property(getOther, setOther)
