@@ -30,6 +30,7 @@ from pyndn import Name, Interest, Data, MetaInfo
 from pyndn.util import Blob, ExponentialReExpress
 from pyndn.util.common import Common
 from pyndn.encrypt import EncryptedContent
+from pyndn.sync import FullPSync2017
 from pycnl.impl.pending_incoming_interest_table import PendingIncomingInterestTable
 
 class Namespace(object):
@@ -74,7 +75,10 @@ class Namespace(object):
         self._onObjectNeededCallbacks = {}
         # setFace will create this in the root Namespace node.
         self._pendingIncomingInterestTable = None
+        # This will be created in the root Namespace node.
+        self._fullPSync = None
         self._maxInterestLifetime = None
+        self._syncDepth = -1
 
     class Handler(object):
         def __init__(self):
@@ -614,6 +618,28 @@ class Namespace(object):
         """
         self._keyChain = keyChain
 
+    def enableSync(self, depth = 30000):
+        """
+        Enable announcing added names and receiving announced names from other
+        users in the sync group.
+
+        :param int depth: (optional) The depth starting from this node to
+          announce new names. If enableSync has already been called on a parent
+          node, then this overrides the depth starting from this node and
+          children of this node. If omitted, use unlimited depth.
+        """
+        if self._root._fullPSync == None:
+            face = self._getFace()
+            if face == None:
+              raise RuntimeError("enableSync: You must first call setFace on this or a parent")
+
+            self._root._fullPSync = FullPSync2017(
+              275, face, Name("/CNL-sync"), self._onNamesUpdate,
+              self._getKeyChain(), 1600, 1600)
+
+        self._syncDepth = depth
+        # Debug: Add existing leaf nodes.
+
     def _getKeyChain(self):
         """
         Get the KeyChain set by setKeyChain (or the NameSpace constructor) on
@@ -627,6 +653,21 @@ class Namespace(object):
         while namespace != None:
             if namespace._keyChain != None:
                 return namespace._keyChain
+            namespace = namespace._parent
+
+        return None
+
+    def _getSyncNode(self):
+        """
+        Get this or a parent Namespace node that has been enabled with enableSync.
+
+        :return: The sync-enabled node, or None if not set on this or any parent.
+        :rtype: Namespace
+        """
+        namespace = self
+        while namespace != None:
+            if namespace._syncDepth >= 0:
+                return namespace
             namespace = namespace._parent
 
         return None
@@ -868,6 +909,19 @@ class Namespace(object):
         if fireCallbacks:
             child._setState(NamespaceState.NAME_EXISTS)
 
+            # Sync this name under the same conditions that we report a NAME_EXISTS.
+            if self._root._fullPSync:
+                syncNode = child._getSyncNode()
+                if syncNode != None:
+                    # Only sync names to the specified depth.
+                    depth = child._name.size() - syncNode._name.size()
+
+                    if depth <= syncNode._syncDepth:
+                        # If _createChild is called when onNamesUpdate receives
+                        # a name from _fullPSync, then publishName already has
+                        # it and will ignore it.
+                        self._root._fullPSync.publishName(child._name)
+
         return child
 
     def _setState(self, state):
@@ -1098,6 +1152,23 @@ class Namespace(object):
         with Namespace._lastCallbackIdLock:
             Namespace._lastCallbackId += 1
             return Namespace._lastCallbackId
+
+    def _onNamesUpdate(self, names):
+        """
+        This is called on the root Namespace node when Full PSync reports
+        updates. For each new name, create the Namespace node if needed (which
+        will fire OnStateChanged with NAME_EXISTS). However, if the the name of
+        the root Namespace node is not a prefix of the name, don't add it.
+        """
+        for name in names:
+            if not self._name.isPrefixOf(name):
+                logging.getLogger(__name__).debug(
+                  "The Namespace root name is not a prefix of the sync update name " +
+                  name.toUri())
+                continue
+
+            # This will create the name if it doesn't exist.
+            self.getChild(name)
 
     name = property(getName)
     parent = property(getParent)
