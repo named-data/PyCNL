@@ -61,6 +61,7 @@ class GeneralizedObjectHandler(Namespace.Handler):
         self._onGeneralizedObject = onGeneralizedObject
         self._nComponentsAfterObjectNamespace = 0
         self._onObjectNeededId = 0
+        self._onDeserializeNeededId = 0
 
     def setNComponentsAfterObjectNamespace(self, nComponentsAfterObjectNamespace):
         """
@@ -189,6 +190,8 @@ class GeneralizedObjectHandler(Namespace.Handler):
 
     def _onNamespaceSet(self):
         self._onObjectNeededId = self.namespace.addOnObjectNeeded(self._onObjectNeeded)
+        self._onDeserializeNeededId = self.namespace._addOnDeserializeNeeded(
+          self._onDeserializeNeeded)
         # We don't attach the SegmentedObjectHandler until we need it.
 
     def _onObjectNeeded(self, namespace, neededNamespace, id):
@@ -201,13 +204,10 @@ class GeneralizedObjectHandler(Namespace.Handler):
             # objectNeeded on the _meta child below).
             return False
 
-        # Remove the unused resource.
-        self.namespace.removeCallback(self._onObjectNeededId)
-
         self.namespace[self.NAME_COMPONENT_META].objectNeeded()
         return True
 
-    def _canDeserialize(self, blobNamespace, blob, onDeserialized):
+    def _onDeserializeNeeded(self, blobNamespace, blob, onDeserialized, callbackId):
         """
         This is called by Namespace when a packet is received. If this is the
         _meta packet, then decode it.
@@ -257,6 +257,10 @@ class GeneralizedObjectHandler(Namespace.Handler):
             # No segments, so the object is the ContentMetaInfo "other" Blob.
             # Deserialize and call the same callback as the segmentedObjectHandler.
             objectNamespace._deserialize(contentMetaInfo.getOther(), onSegmentedObject)
+
+        # Remove callbacks to detach this from the Namespace.
+        self.namespace.removeCallback(self._onObjectNeededId)
+        self.namespace.removeCallback(self._onDeserializeNeededId)
 
         return True
 
