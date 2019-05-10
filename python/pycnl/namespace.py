@@ -72,7 +72,10 @@ class Namespace(object):
         self._onStateChangedCallbacks = {}
         # The dictionary key is the callback ID. The value is the onValidateStateChanged function.
         self._onValidateStateChangedCallbacks = {}
+        # The dictionary key is the callback ID. The value is the onObjectNeeded function.
         self._onObjectNeededCallbacks = {}
+        # The dictionary key is the callback ID. The value is the onDeserializetNeeded function.
+        self._onDeserializeNeededCallbacks = {}
         # setFace will create this in the root Namespace node.
         self._pendingIncomingInterestTable = None
         # This will be created in the root Namespace node.
@@ -81,6 +84,7 @@ class Namespace(object):
         self._syncDepth = -1
 
     class Handler(object):
+        # Namespace,Handler is a base class for Handler classes.
         def __init__(self):
             self._namespace = None
 
@@ -114,25 +118,6 @@ class Namespace(object):
             :rtype: Namespace
             """
             return self._namespace
-
-        def _canDeserialize(self, blobNamespace, blob, onDeserialized):
-            """
-            An internal method to check if this Handler can deserialize the blob
-            in order to set the object for the blobNamespace. This should only
-            be called by the Namespace class. This base implementation just
-            returns False. The subclass can override.
-
-            :param Namespace blobNamespace: The Namespace node which needs its
-              Blob deserialized to an object.
-            :param Blob blob: The serialized bytes to deserialize.
-            :param onDeserialized: If the Handler can deserialize, it should
-              return True and eventually call onDeserialized(obj) with the
-              deserialized object.
-            :type onDeserialized: function object
-            :return: True if this Handler can deserialize and will call
-              onDeserialized, otherwise False.
-            """
-            return False
 
         def _onNamespaceSet(self):
             """
@@ -844,11 +829,36 @@ class Namespace(object):
 
         return None
 
+    def _addOnDeserializeNeeded(self, onDeserializeNeeded):
+        """
+        Add an onDeserializeNeeded callback. See deserialize_ for details. This
+        method name has an underscore because is normally only called from a
+        Handler, not from the application.
+
+        :param onDeserializeNeeded: This calls
+           onDeserializeNeeded(blobNamespace, blob, onDeserialized, callbackId)
+           where blobNamespace is the Namespace node which needs its Blob
+           deserialized to an object, blob is the Blob with the serialized bytes
+           to deserialize, onDeserialized is the callback to call with the
+           deserialized object, and callbackId is the callback ID returned by
+           this method. If a Handler can deserialize the blob for the
+           blobNamespace, then onDeserializeNeeded should return True and
+           eventually call onDeserialized(obj) where object is the
+           deserialized object. If the Handler cannot deserialize the blob then
+           onDeserializeNeeded should return False.
+        :type onDeserializeNeeded: function object
+        :return: The callback ID which you can use in removeCallback().
+        :rtype: int
+        """
+        callbackId = Namespace.getNextCallbackId()
+        self._onDeserializeNeededCallbacks[callbackId] = onDeserializeNeeded
+        return callbackId
+
     def _deserialize(self, blob, onObjectSet = None):
         """
-        If _canDeserialize on the Handler of this or a parent Namespace node
-        returns True, set the state to DESERIALIZING and wait for the Handler to
-        call the given onDeserialized. Otherwise, just call
+        If an OnDeserializeNeeded callback of this or a parent Namespace node
+        returns True, set the state to DESERIALIZING and wait for the callback
+        to call the given onDeserialized. Otherwise, just call
         _defaultOnDeserialized immediately, which sets the object and sets the
         state to OBJECT_READY. This method name has an underscore because is
         normally only called from a Handler, not from the application.
@@ -860,13 +870,10 @@ class Namespace(object):
         """
         namespace = self
         while namespace != None:
-            if namespace._handler != None:
-                if namespace._handler._canDeserialize(
-                      self, blob, 
-                      lambda obj: self._defaultOnDeserialized(obj, onObjectSet)):
-                    # Wait for the Handler to set the object.
-                    self._setState(NamespaceState.DESERIALIZING)
-                    return
+            if namespace._fireOnDeserializeNeeded(self, blob, onObjectSet):
+                # Wait for the Handler to set the object.
+                self._setState(NamespaceState.DESERIALIZING)
+                return
 
             namespace = namespace._parent
 
@@ -993,6 +1000,22 @@ class Namespace(object):
                     logging.exception("Error in onObjectNeeded")
 
         return canProduce
+
+    def _fireOnDeserializeNeeded(self, blobNamespace, blob, onObjectSet):
+        onDeserialized = lambda obj: self._defaultOnDeserialized(obj, onObjectSet)
+
+        # Copy the keys before iterating since callbacks can change the list.
+        for id in list(self._onDeserializeNeededCallbacks.keys()):
+            # A callback on a previous pass may have removed this callback, so check.
+            if id in self._onDeserializeNeededCallbacks:
+                try:
+                    if self._onDeserializeNeededCallbacks[
+                      id](blobNamespace, blob, onDeserialized, id):
+                        return True
+                except:
+                    logging.exception("Error in onObjectNeeded")
+
+        return False
 
     def _defaultOnDeserialized(self, obj, onObjectSet):
         """
