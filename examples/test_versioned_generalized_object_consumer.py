@@ -49,11 +49,11 @@ def main():
         dump("Got generalized object", objectNamespace.name, ", content-type",
              contentMetaInfo.contentType, ":", str(objectNamespace.obj))
         enabled[0] = False
-    handler = GeneralizedObjectHandler(onGeneralizedObject)
+    handler = GeneralizedObjectHandler(prefix, onGeneralizedObject)
     # Allow one component after the prefix for the <version>.
     handler.setNComponentsAfterObjectNamespace(1)
     # In objectNeeded, set mustBeFresh == true so we avoid expired cached data.
-    prefix.setHandler(handler).objectNeeded(True)
+    prefix.objectNeeded(True)
 
     # Loop calling processEvents until a callback sets enabled[0] = False.
     while enabled[0]:

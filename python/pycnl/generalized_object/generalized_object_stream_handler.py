@@ -264,9 +264,8 @@ class GeneralizedObjectStreamHandler(Namespace.Handler):
                   GeneralizedObjectHandler.NAME_COMPONENT_META]
                 # Make sure we didn't already request it.
                 if sequenceMeta.state < NamespaceState.INTEREST_EXPRESSED:
-                    generalizedObjectHandler = GeneralizedObjectHandler(
+                    GeneralizedObjectHandler(targetNamespace,
                       self._makeOnGeneralizedObject(sequenceNumber))
-                    targetNamespace.setHandler(generalizedObjectHandler)
                     sequenceMeta.objectNeeded()
             else:
                 # Fetch by continuously filling the Interest pipeline.
@@ -307,10 +306,8 @@ class GeneralizedObjectStreamHandler(Namespace.Handler):
             nOutstandingSequenceNumbers += 1
             self._nRequestedSequenceNumbers += 1
 
-            # Debug: Do we have to attach a new handler for each sequence number?
-            generalizedObjectHandler = GeneralizedObjectHandler(
+            GeneralizedObjectHandler(sequenceNamespace,
               self._makeOnGeneralizedObject(sequenceNumber))
-            sequenceNamespace.setHandler(generalizedObjectHandler)
             if sequenceNumber > self._maxRequestedSequenceNumber:
                 self._maxRequestedSequenceNumber = sequenceNumber
             sequenceMeta.objectNeeded()

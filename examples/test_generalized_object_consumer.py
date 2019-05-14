@@ -49,7 +49,7 @@ def main():
              contentMetaInfo.contentType, ":", str(objectNamespace.obj))
         enabled[0] = False
 
-    objectPrefix.setHandler(GeneralizedObjectHandler(onGeneralizedObject)).objectNeeded()
+    GeneralizedObjectHandler(objectPrefix, onGeneralizedObject).objectNeeded()
 
     # Loop calling processEvents until a callback sets enabled[0] = False.
     while enabled[0]:

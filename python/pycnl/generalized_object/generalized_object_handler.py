@@ -36,6 +36,8 @@ class GeneralizedObjectHandler(Namespace.Handler):
     Create a GeneralizedObjectHandler with the optional onGeneralizedObject
     callback.
 
+    :param Namespace namespace: (optional) Set the Namespace that this handler
+      is attached to. If omitted or None, you can call setNamespace() later.
     :param onGeneralizedObject: (optional) When the ContentMetaInfo is received
       and the hasSegments is False, this calls
       onGeneralizedObject(contentMetaInfo, objectNamespace) where
@@ -51,7 +53,7 @@ class GeneralizedObjectHandler(Namespace.Handler):
       which this is attached and listen for the OBJECT_READY state.
     :type onGeneralizedObject: function object
     """
-    def __init__(self, onGeneralizedObject = None):
+    def __init__(self, namespace = None, onGeneralizedObject = None):
         super(GeneralizedObjectHandler, self).__init__()
 
         # Instead of making this inherit from SegmentedObjectHandler, we create
@@ -62,6 +64,9 @@ class GeneralizedObjectHandler(Namespace.Handler):
         self._nComponentsAfterObjectNamespace = 0
         self._onObjectNeededId = 0
         self._onDeserializeNeededId = 0
+
+        if namespace != None:
+            self.setNamespace(namespace)
 
     def setNComponentsAfterObjectNamespace(self, nComponentsAfterObjectNamespace):
         """
