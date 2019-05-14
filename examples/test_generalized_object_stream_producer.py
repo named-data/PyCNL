@@ -46,8 +46,7 @@ def main():
 
     publishIntervalMs = 1000.0
     stream = Namespace("/ndn/eb/stream/run/28/annotations", keyChain)
-    handler = GeneralizedObjectStreamHandler()
-    stream.setHandler(handler)
+    handler = GeneralizedObjectStreamHandler(stream)
 
     dump("Register prefix", stream.name)
     # Set the face and register to receive Interests.
