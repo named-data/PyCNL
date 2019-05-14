@@ -48,8 +48,7 @@ def main():
              ", content-type", contentMetaInfo.contentType, ":",
              str(objectNamespace.obj))
     pipelineSize = 10
-    stream.setHandler(
-      GeneralizedObjectStreamHandler(pipelineSize, onNewObject)).objectNeeded()
+    GeneralizedObjectStreamHandler(stream, pipelineSize, onNewObject).objectNeeded()
 
     while True:
         face.processEvents()

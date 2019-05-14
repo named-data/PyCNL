@@ -36,6 +36,8 @@ class GeneralizedObjectStreamHandler(Namespace.Handler):
     Create a GeneralizedObjectHandler with the optional
     onSequencedGeneralizedObject callback.
 
+    :param Namespace namespace: (optional) Set the Namespace that this handler
+      is attached to. If omitted or None, you can call setNamespace() later.
     :param int pipelineSize: (optional) The pipeline size (number of objects,
       not interests). The pipelineSize times the expected period between objects
       should be less than the maximum interest lifetime.
@@ -60,7 +62,8 @@ class GeneralizedObjectStreamHandler(Namespace.Handler):
       attached and listen for the OBJECT_READY state.
     :type onSequencedGeneralizedObject: function object
     """
-    def __init__(self, pipelineSize = 8, onSequencedGeneralizedObject = None):
+    def __init__(self, namespace = None, pipelineSize = 8,
+          onSequencedGeneralizedObject = None):
         super(GeneralizedObjectStreamHandler, self).__init__()
 
         if pipelineSize < 0:
@@ -75,6 +78,9 @@ class GeneralizedObjectStreamHandler(Namespace.Handler):
         self._maxRequestedSequenceNumber = -1
         self._nReportedSequenceNumbers = 0
         self._maxReportedSequenceNumber = -1
+
+        if namespace != None:
+            self.setNamespace(namespace)
 
     def setObject(self, sequenceNumber, obj, contentType):
         """
