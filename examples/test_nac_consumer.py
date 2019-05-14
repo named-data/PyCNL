@@ -169,7 +169,7 @@ def main():
     def onSegmentedObject(objectNamespace):
         dump("Got segmented content", objectNamespace.obj.toRawStr())
         enabled[0] = False
-    contentNamespace.setHandler(SegmentedObjectHandler(onSegmentedObject)).objectNeeded()
+    SegmentedObjectHandler(contentNamespace, onSegmentedObject).objectNeeded()
 
     while enabled[0]:
         face.processEvents()

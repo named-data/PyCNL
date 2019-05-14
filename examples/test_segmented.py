@@ -43,7 +43,7 @@ def main():
     def onSegmentedObject(objectNamespace):
         dump("Got segmented object size", objectNamespace.obj.size())
         enabled[0] = False
-    page.setHandler(SegmentedObjectHandler(onSegmentedObject)).objectNeeded()
+    SegmentedObjectHandler(page, onSegmentedObject).objectNeeded()
 
     # Loop calling processEvents until a callback sets enabled[0] = False.
     while enabled[0]:

@@ -32,13 +32,15 @@ class SegmentedObjectHandler(SegmentStreamHandler):
     """
     Create a SegmentedObjectHandler with the optional onSegmentedObject callback.
 
+    :param Namespace namespace: (optional) Set the Namespace that this handler
+      is attached to. If omitted or None, you can call setNamespace() later.
     :param onSegmentedObject: (optional) If not None, this calls
       addOnSegmentedObject(onSegmentedObject). You may also call
       addOnSegmentedObject directly.
     :type onSegment: function object
     """
-    def __init__(self, onSegmentedObject = None):
-        super(SegmentedObjectHandler, self).__init__(self._onSegment)
+    def __init__(self, namespace = None, onSegmentedObject = None):
+        super(SegmentedObjectHandler, self).__init__(namespace, self._onSegment)
 
         self._segments = []
         self._totalSize = 0
@@ -47,6 +49,8 @@ class SegmentedObjectHandler(SegmentStreamHandler):
 
         if onSegmentedObject != None:
             self.addOnSegmentedObject(onSegmentedObject)
+
+        # The base class SegmentStreamHandler will call setNamespace(namespace)
 
     def addOnSegmentedObject(self, onSegmentedObject):
         """
