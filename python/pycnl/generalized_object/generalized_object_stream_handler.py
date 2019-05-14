@@ -320,10 +320,6 @@ class GeneralizedObjectStreamHandler(Namespace.Handler):
 
     def _makeOnGeneralizedObject(self, sequenceNumber):
         def onGeneralizedObject(contentMetaInfo, objectNamespace):
-            # The Handler is finished, so detach it from the Namespace
-            # to save resources.
-            objectNamespace.setHandler(None)
-
             if self._onSequencedGeneralizedObject != None:
                 try:
                     self._onSequencedGeneralizedObject(

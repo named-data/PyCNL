@@ -67,7 +67,6 @@ class Namespace(object):
         self._decryptor = None
         self._decryptionError = ""
         self._signingError = ""
-        self._handler = None
         # The dictionary key is the callback ID. The value is the onStateChanged function.
         self._onStateChangedCallbacks = {}
         # The dictionary key is the callback ID. The value is the onValidateStateChanged function.
@@ -90,9 +89,7 @@ class Namespace(object):
 
         def setNamespace(self, namespace):
             """
-            Set the Namespace that this handler is attached to. (This is
-            automatically called when you call Namespace.setHandler.) This
-            method does not attach this Handler to the Namespace.
+            Set the Namespace that this handler is attached to.
 
             :param Namespace namespace: The Handler's Namespace.
             :return: This Handler so you can chain calls to update values.
@@ -686,20 +683,6 @@ class Namespace(object):
         """
         self._decryptor = decryptor
 
-    def setHandler(self, handler):
-        if handler == None:
-            # Clear the Handler.
-            self._handler = None
-            return
-
-        if self._handler != None:
-            # TODO: Should we try to chain handlers?
-            raise ValueError("This Namespace node already has a handler: " + self.name.toUri())
-
-        handler.setNamespace(self)
-        self._handler = handler
-        return self
-
     def objectNeeded(self, mustBeFresh = True):
         # Check if we already have the object.
         interest = Interest(self._name)
@@ -788,21 +771,6 @@ class Namespace(object):
         while namespace != None:
             if namespace._decryptor != None:
                 return namespace._decryptor
-            namespace = namespace._parent
-
-        return None
-
-    def _getHandler(self):
-        """
-        Get the Handler set by setHandler on this or a parent Namespace node.
-
-        :return: The Handler, or None if not set on this or any parent.
-        :rtype: Namespace.Handler
-        """
-        namespace = self
-        while namespace != None:
-            if namespace._handler != None:
-                return namespace._handler
             namespace = namespace._parent
 
         return None
