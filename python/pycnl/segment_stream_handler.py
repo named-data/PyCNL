@@ -32,11 +32,13 @@ class SegmentStreamHandler(Namespace.Handler):
     """
     Create a SegmentStreamHandler with the optional onSegment callback.
 
+    :param Namespace namespace: (optional) Set the Namespace that this handler
+      is attached to. If omitted or None, you can call setNamespace() later.
     :param onSegment: (optional) If not None, this calls addOnSegment(onSegment).
       You may also call addOnSegment directly.
     :type onSegment: function object
     """
-    def __init__(self, onSegment = None):
+    def __init__(self, namespace = None, onSegment = None):
         super(SegmentStreamHandler, self).__init__()
 
         self._maxReportedSegmentNumber = -1
@@ -51,6 +53,9 @@ class SegmentStreamHandler(Namespace.Handler):
 
         if onSegment != None:
             self.addOnSegment(onSegment)
+
+        if namespace != None:
+            self.setNamespace(namespace)
 
     def addOnSegment(self, onSegment):
         """
