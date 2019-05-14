@@ -119,6 +119,16 @@ class Namespace(object):
             """
             return self._namespace
 
+        def objectNeeded(self, mustBeFresh = True):
+            """
+            A convenience method to call getNamespace().objectNeeded().
+            """
+            if self._namespace == None:
+                raise RuntimeError(
+                  "Handler::objectNeeded: The Namespace has not been set")
+
+            self._namespace.objectNeeded(mustBeFresh)
+
         def _onNamespaceSet(self):
             """
             This protected method is called after this Handler's Namespace field
@@ -690,7 +700,7 @@ class Namespace(object):
         self._handler = handler
         return self
 
-    def objectNeeded(self, mustBeFresh = False):
+    def objectNeeded(self, mustBeFresh = True):
         # Check if we already have the object.
         interest = Interest(self._name)
         # TODO: Make the lifetime configurable.
