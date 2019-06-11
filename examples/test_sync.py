@@ -27,8 +27,6 @@ from pyndn import Name
 from pyndn import Interest
 from pyndn import Face
 from pyndn.security import KeyChain
-from pyndn.security import SafeBag
-from pyndn.util import Blob
 from pycnl import Namespace, NamespaceState
 from pyndn.util.common import Common
 
