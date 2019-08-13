@@ -82,7 +82,7 @@ class GeneralizedObjectStreamHandler(Namespace.Handler):
         if namespace != None:
             self.setNamespace(namespace)
 
-    def setObject(self, sequenceNumber, obj, contentType):
+    def setObject(self, sequenceNumber, obj, contentType, other = None):
         """
         Prepare the generalized object as a child of the given sequence number
         Namespace node under the getNamespace() node, according to
@@ -94,6 +94,10 @@ class GeneralizedObjectStreamHandler(Namespace.Handler):
         :param obj: The object to publish as a Generalized Object.
         :type obj: Blob or other type as determined by an attached handler
         :param str contentType: The content type for the content _meta packet.
+        :param Blob other: (optional) If the "other" Blob size is greater than
+          zero, then put it in the _meta packet and use segments for the object
+          Blob (even if it is small). If the "other" Blob isNull() or the size
+          is zero, then don't use it.
         """
         if self.namespace == None:
             raise RuntimeError(
@@ -103,9 +107,9 @@ class GeneralizedObjectStreamHandler(Namespace.Handler):
         sequenceNamespace = self.namespace[
           Name.Component.fromSequenceNumber(self._producedSequenceNumber)]
         self._generalizedObjectHandler.setObject(
-          sequenceNamespace, obj, contentType)
+          sequenceNamespace, obj, contentType, other)
 
-    def addObject(self, obj, contentType):
+    def addObject(self, obj, contentType, other = None):
         """
         Publish an object for the next sequence number by calling setObject
         where the sequenceNumber is the current getProducedSequenceNumber() + 1.
@@ -113,8 +117,12 @@ class GeneralizedObjectStreamHandler(Namespace.Handler):
         :param obj: The object to publish as a Generalized Object.
         :type obj: Blob or other type as determined by an attached handler
         :param str contentType: The content type for the content _meta packet.
+        :param Blob other: (optional) If the "other" Blob size is greater than
+          zero, then put it in the _meta packet and use segments for the object
+          Blob (even if it is small). If the "other" Blob isNull() or the size
+          is zero, then don't use it.
         """
-        self.setObject(self.getProducedSequenceNumber() + 1, obj, contentType)
+        self.setObject(self.getProducedSequenceNumber() + 1, obj, contentType, other)
 
     def getProducedSequenceNumber(self):
         """

@@ -26,6 +26,7 @@ packets into a single block of memory.
 
 import logging
 from pyndn import Name
+from pyndn.util.blob import Blob
 from pyndn.util.common import Common
 from pycnl.namespace import Namespace, NamespaceState
 from pycnl.segmented_object_handler import SegmentedObjectHandler
@@ -88,21 +89,28 @@ class GeneralizedObjectHandler(Namespace.Handler):
               "setNComponentsAfterObjectNamespace: The value cannot be negative")
         self._nComponentsAfterObjectNamespace = nComponentsAfterObjectNamespace
 
-    def setObject(self, namespace, obj, contentType):
+    def setObject(self, namespace, obj, contentType, other = None):
         """
         Create a _meta packet with the given contentType and as a child of the
-        given Namespace. If the object is large enough to require segmenting,
-        also segment the object and create child segment packets plus a
-        signature _manifest packet of the given Namespace.
+        given Namespace. If the "other" Blob is provided or if the object is
+        large enough to require segmenting, also segment the object and create
+        child segment packets plus a signature _manifest packet of the given
+        Namespace.
 
         :param Namespace namespace: The Namespace to append segment packets to.
           This ignores the Namespace from setNamespace().
         :param obj: The object to publish as a Generalized Object.
         :type obj: Blob or other type as determined by an attached handler
         :param str contentType: The content type for the content _meta packet.
+        :param Blob other: (optional) If the "other" Blob size is greater than
+          zero, then put it in the _meta packet and use segments for the object
+          Blob (even if it is small). If the "other" Blob isNull() or the size
+          is zero, then don't use it.
         """
+        other = other if isinstance(other, Blob) else Blob(other)
         hasSegments = (obj.size() >
-          self._segmentedObjectHandler.getMaxSegmentPayloadLength())
+          self._segmentedObjectHandler.getMaxSegmentPayloadLength() or
+          other.size() > 0)
 
         # Prepare the _meta packet.
         contentMetaInfo = ContentMetaInfo()
@@ -112,7 +120,10 @@ class GeneralizedObjectHandler(Namespace.Handler):
 
         if not hasSegments:
             # We don't need to segment. Put the object in the "other" field.
-            contentMetaInfo.setOther(obj);
+            contentMetaInfo.setOther(obj)
+        elif other.size() > 0:
+            # We have an "other" field in addition to segments.
+            contentMetaInfo.setOther(other)
 
         namespace[self.NAME_COMPONENT_META].serializeObject(
           contentMetaInfo.wireEncode())
@@ -221,7 +232,7 @@ class GeneralizedObjectHandler(Namespace.Handler):
             len(self.namespace.name) + self._nComponentsAfterObjectNamespace + 1):
             # This is not a generalized object packet at the correct level
             # under the Namespace.
-            return False;
+            return False
         if blobNamespace.name[-1] != self.NAME_COMPONENT_META:
             # Not the _meta packet.
             if (self._nComponentsAfterObjectNamespace > 0 and
@@ -234,7 +245,7 @@ class GeneralizedObjectHandler(Namespace.Handler):
                 if metaNamespace.state < NamespaceState.INTEREST_EXPRESSED:
                     metaNamespace.objectNeeded()
 
-            return False;
+            return False
 
         # Decode the ContentMetaInfo.
         contentMetaInfo = ContentMetaInfo()
