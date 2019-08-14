@@ -849,8 +849,9 @@ class Namespace(object):
         namespace = self
         while namespace != None:
             if namespace._fireOnDeserializeNeeded(self, blob, onObjectSet):
-                # Wait for the Handler to set the object.
-                self._setState(NamespaceState.DESERIALIZING)
+                # Wait for the Handler to set the object, if it hasn't yet.
+                if self._state < NamespaceState.DESERIALIZING:
+                    self._setState(NamespaceState.DESERIALIZING)
                 return
 
             namespace = namespace._parent
