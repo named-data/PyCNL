@@ -980,7 +980,7 @@ class Namespace(object):
         return canProduce
 
     def _fireOnDeserializeNeeded(self, blobNamespace, blob, onObjectSet):
-        onDeserialized = lambda obj: self._defaultOnDeserialized(obj, onObjectSet)
+        onDeserialized = lambda obj: blobNamespace._defaultOnDeserialized(obj, onObjectSet)
 
         # Copy the keys before iterating since callbacks can change the list.
         for id in list(self._onDeserializeNeededCallbacks.keys()):
