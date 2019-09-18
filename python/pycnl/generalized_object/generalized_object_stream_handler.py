@@ -45,6 +45,7 @@ class GeneralizedObjectStreamHandler(Namespace.Handler):
       use its name to fetch the generalized object. In this case, the producer
       can call setLatestPacketFreshnessPeriod to set the freshness period to
       less than the expected period of producing new generalized objects.
+      If omitted, use a pipeline size of 8.
     :param onSequencedGeneralizedObject: (optional) When the ContentMetaInfo is
       received for a new sequence number and the hasSegments is False, this calls
       onSequencedGeneralizedObject(sequenceNumber, contentMetaInfo, objectNamespace)
@@ -152,6 +153,36 @@ class GeneralizedObjectStreamHandler(Namespace.Handler):
         """
         self._latestPacketFreshnessPeriod = Common.nonNegativeFloatOrNone(
           latestPacketFreshnessPeriod)
+
+    def getPipelineSize(self):
+        """
+        Get the pipeline size.
+
+        :return: The pipeline size.
+        :rtype: int
+        """
+        return self._pipelineSize
+
+    def setPipelineSize(self, pipelineSize):
+        """
+        Change the pipeline size that was set in the constructor. This is only
+        valid if the pipeline size in the constructor was non-zero. It is an
+        error to set the pipeline size to zero if it was non-zero and vice
+        versa, since this behavior is undefined.
+
+        :param int pipelineSize: The pipeline size.
+        """
+        if pipelineSize < 0:
+            pipelineSize = 0
+
+        if pipelineSize == 0 and self._pipelineSize > 0:
+            raise RuntimeError(
+              "GeneralizedObjectStreamHandler.setPipelineSize: Cannot change the pipeline size from non-zero to zero")
+        if pipelineSize > 0 and self._pipelineSize == 0:
+            raise RuntimeError(
+              "GeneralizedObjectStreamHandler.setPipelineSize: Cannot change the pipeline size from zero to non-zero")
+
+        self._pipelineSize = pipelineSize
 
     def getMaxSegmentPayloadLength(self):
         """
