@@ -116,7 +116,7 @@ class Namespace(object):
             """
             return self._namespace
 
-        def objectNeeded(self, mustBeFresh = True):
+        def objectNeeded(self, mustBeFresh = False):
             """
             A convenience method to call getNamespace().objectNeeded().
             """
@@ -683,7 +683,15 @@ class Namespace(object):
         """
         self._decryptor = decryptor
 
-    def objectNeeded(self, mustBeFresh = True):
+    def objectNeeded(self, mustBeFresh = False):
+        """
+        If any OnObjectNeeded callback returns true (as explained in
+        addOnObjectNeeded) then wait for the callback to set the object. Otherwise,
+        call express Interest on getFace().
+
+        :param bool mustBeFresh: (optional) The MustBeFresh flag if this calls
+          expressInterest. If omitted, use False.
+        """
         # Check if we already have the object.
         interest = Interest(self._name)
         # TODO: Make the lifetime configurable.
