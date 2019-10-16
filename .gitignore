@@ -1,6 +1,7 @@
 # Python
 *.class
 *.pyc
+python/PyCNL.egg-info
 
 # Mac OSX
 .DS_Store
